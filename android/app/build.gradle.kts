@@ -29,7 +29,7 @@ android {
     // 产物命名：RYKEN-mobile-<版本>.APK（后缀一律大写，跨项目规则）
     applicationVariants.all {
         outputs.all {
-            (this as BaseVariantOutputImpl).outputFileName = "RYKEN-Mobile-$versionName.APK"
+            (this as BaseVariantOutputImpl).outputFileName = "Ryken-Mobile-$versionName.APK"
         }
     }
 

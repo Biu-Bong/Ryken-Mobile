@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-#  RYKEN 手机端上位机 — 一键编译 APK（Git Bash / Linux / macOS）
+#  Ryken Mobile 手机端上位机 — 一键编译 APK（Git Bash / Linux / macOS）
 #  与 build.bat 等价。换机器/换目录只要设好 JAVA_HOME 和 ANDROID_HOME。
 # ============================================================
 set -euo pipefail

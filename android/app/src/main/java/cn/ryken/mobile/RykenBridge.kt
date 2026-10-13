@@ -284,7 +284,7 @@ class RykenBridge(private val ctx: Context) {
             conn.connectTimeout = 8000
             conn.readTimeout = 8000
             conn.instanceFollowRedirects = true
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) RYKEN-Mobile")
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) Ryken-Mobile")
             val code = conn.responseCode
             if (code !in 200..299) {
                 conn.disconnect()
@@ -396,7 +396,7 @@ class RykenBridge(private val ctx: Context) {
         val conn = ysOpen(origin + "/")
         conn.connectTimeout = 8000; conn.readTimeout = 8000
         conn.instanceFollowRedirects = true
-        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) RYKEN-Mobile")
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) Ryken-Mobile")
         val allHeaders = conn.headerFields
         var jwt = ""
         for ((k, v) in allHeaders) {
@@ -503,7 +503,7 @@ class RykenBridge(private val ctx: Context) {
         conn.setRequestProperty("Authorization", "Bearer " + jwt)
         conn.setRequestProperty("Origin", origin)
         conn.setRequestProperty("Referer", origin + "/")
-        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) RYKEN-Mobile")
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) Ryken-Mobile")
         conn.outputStream.use { it.write(body.toByteArray()) }
         val code = conn.responseCode
         val text = (if (code in 200..299) conn.inputStream else conn.errorStream)

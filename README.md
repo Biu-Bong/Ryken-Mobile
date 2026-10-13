@@ -1,6 +1,6 @@
 <div align="center">
 
-# RYKEN Mobile
+# Ryken Mobile
 
 **瑞垦 RK-X3 / X3 SE USB 功率表 · 手机端上位机**
 
@@ -35,6 +35,7 @@
 - [已知限制](#已知限制)
 - [逆向分析报告](#逆向分析报告)
 - [参与贡献](#参与贡献)
+- [致谢](#致谢)
 - [免责声明](#免责声明)
 - [开源协议](#开源协议)
 
@@ -103,7 +104,7 @@ SCP / FCP / AFC / SVOOC 等协议检测，配 16bit ADC 与 4MB Flash 离线存�
 
 ### 方式一：直接安装 APK
 
-到 [Releases](../../releases) 页面下载最新的 `RYKEN-Mobile-x.y.z.APK`，安装后插上功率表即可。
+到 [Releases](../../releases) 页面下载最新的 `Ryken-Mobile-x.y.z.APK`，安装后插上功率表即可。
 首次插入会弹出 USB 权限请求，勾选「默认用于此设备」可免去每次确认。
 
 ### 方式二：从源码构建
@@ -126,7 +127,7 @@ android\build.bat
 产物路径：
 
 ```
-android/app/build/outputs/apk/debug/RYKEN-Mobile-1.0.0.APK
+android/app/build/outputs/apk/debug/Ryken-Mobile-1.0.0.APK
 ```
 
 > 构建前 `build.sh` / `build.bat` / Gradle 任务会自动把根目录的 `index.html` 与 `assets/`
@@ -234,6 +235,15 @@ AA | LEN | DATA | CRC16(BE)
 - 前端改动只需改根目录的 `index.html` / `assets/`，**不要动 `android/app/src/main/assets/www/`**（自动生成）
 - 涉及新的设备命令，请先在 `docs/HID接口能力-取证报告.md` 中核对它的安全性
 - 提交日志请说明改动目的与验证方式（最好附实测截图）
+
+## 致谢
+
+- 感谢**瑞垦官方团队与官方交流群**：开发期间在协议细节、固件格式等方面得到了不少答疑帮助，
+  让实现少走了很多弯路。
+- 感谢**群友**的赞助支持 —— 这份心意是项目继续维护下去的动力。
+
+> 上述帮助与支持均为开发者与社区之间的正常交流，**不构成本项目的官方授权、认可或背书**，
+> 详见下方[免责声明](#免责声明)。
 
 ## 免责声明
 

@@ -2064,7 +2064,7 @@ $('#btnCheckFw').addEventListener('click', async () => {
    （Kotlin HTTP，无 CORS 限制、异步不冻屏），浏览器环境回落 fetch。
    ⚠ 别直接抓 Releases 页的 HTML —— 那个页面是 JS 渲染的，拿到的是空壳；
      改抓**同域的 releases.atom**（静态 XML 订阅源），第一个 <entry><title> 就是最新 tag。 */
-const APP_REPO_URL = 'https://github.com/Biu-Bong/RYKEN-Mobile';
+const APP_REPO_URL = 'https://github.com/Biu-Bong/Ryken-Mobile';
 const APP_RELEASES_URL = APP_REPO_URL + '/releases';
 let appJumpUrl = '';                      // 「最新版本」点击跳转地址（检查成功后填）
 
@@ -2119,7 +2119,7 @@ $('#btnAppUpdate')?.addEventListener('click', async () => {
     }
     const first = txt.split(/<entry[\s>]/)[1] || '';
     /* 优先取 /releases/tag/<tag> —— tag 才是版本号；<title> 是 release 的展示标题，
-       有人会写成「RYKEN Mobile v1.0.0」甚至带上日期，抠数字容易抓错。 */
+       有人会写成「Ryken Mobile v1.0.0」甚至带上日期，抠数字容易抓错。 */
     const tag = (first.match(/\/releases\/tag\/([^"'<\s]+)/) || [])[1]
              || (first.match(/<title[^>]*>([^<]+)<\/title>/i) || [])[1];
     if (!tag) throw new Error('订阅源里没有版本号');
@@ -2370,7 +2370,7 @@ $('#btnUpgrade').addEventListener('click', async () => {
 
   if (!R || !R.iapWriteBegin) {
     $('#fwHint').classList.add('show');
-    toast('浏览器版不支持直接刷写，请在 RYKEN App 内操作', 3200);
+    toast('浏览器版不支持直接刷写，请在 Ryken Mobile App 内操作', 3200);
     return;
   }
   if (!fwLocalBytes || !fwLocalBytes.length) { toast('请先点「选择固件」挑一个 bin 文件', 2800); return; }
@@ -2786,7 +2786,7 @@ async function boot() {
   buildChips(); buildColors(); applyChartCfg();
   applySettingsToDOM();   // 所有设置项回填上次的值
   const av = $('#appVer');
-  if (av && $('#aboutVer')) $('#aboutVer').textContent = 'RYKEN Mobile ' + av.textContent;
+  if (av && $('#aboutVer')) $('#aboutVer').textContent = 'Ryken Mobile ' + av.textContent;
   /* 顶栏的软件版本号与 #appVer 同源，避免两处版本字符串各自漂移 */
   if (av && $('#tbVer')) $('#tbVer').textContent = av.textContent;
   const isAndroid = !!(window.Ryken && window.Ryken.platform && window.Ryken.platform() === 'android');
