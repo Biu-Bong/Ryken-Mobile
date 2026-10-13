@@ -36,6 +36,7 @@
 - [逆向分析报告](#逆向分析报告)
 - [参与贡献](#参与贡献)
 - [致谢](#致谢)
+- [赞赏](#赞赏)
 - [免责声明](#免责声明)
 - [开源协议](#开源协议)
 
@@ -81,13 +82,31 @@ SCP / FCP / AFC / SVOOC 等协议检测，配 16bit ADC 与 4MB Flash 离线存�
 
 ## 截图
 
-| 测量（T1-T2 测量线） | 曲线特写（含 T1/T2 读数） |
-| :---: | :---: |
-| ![测量](docs/screenshots/01-measure.png) | ![曲线特写](docs/screenshots/02-t1t2.png) |
+### 竖屏
 
-| 统计 | 横屏 |
+| 测量（T1/T2 可拖测量线） | 统计 |
 | :---: | :---: |
-| ![统计](docs/screenshots/03-stats.png) | ![横屏](docs/screenshots/04-landscape.png) |
+| ![测量](docs/screenshots/01-measure.png) | ![统计](docs/screenshots/03-stats.png) |
+
+曲线特写 —— T1/T2 两条测量线，逐系列标出起止值与 Δt：
+
+![曲线特写](docs/screenshots/02-t1t2.png)
+
+### 横屏
+
+横屏是三栏布局：左侧三张主卡、中间副参数、右侧曲线铺满剩余宽度，看曲线时更舒服。
+
+**实时** —— 主卡 / 副参数 / 实时曲线并排
+
+![实时（横屏）](docs/screenshots/04-live-landscape.png)
+
+**测量** —— 左栏关键指标，右侧曲线 + T1/T2 测量线
+
+![测量（横屏）](docs/screenshots/05-measure-landscape.png)
+
+**统计** —— 悬浮统计窗浮在图上，「全部 / 窗口」两组口径
+
+![统计（横屏）](docs/screenshots/06-stats-landscape.png)
 
 ## 兼容设备
 
@@ -244,6 +263,15 @@ AA | LEN | DATA | CRC16(BE)
 
 > 上述帮助与支持均为开发者与社区之间的正常交流，**不构成本项目的官方授权、认可或背书**，
 > 详见下方[免责声明](#免责声明)。
+
+## 赞赏
+
+这个工具帮到了你的话，可以请作者喝杯咖啡。**完全自愿，不影响任何功能。**
+
+<p align="center">
+  <img src="assets/img/reward_dark.jpg#gh-dark-mode-only" alt="赞赏码" width="260" />
+  <img src="assets/img/reward_light.jpg#gh-light-mode-only" alt="赞赏码" width="260" />
+</p>
 
 ## 免责声明
 
