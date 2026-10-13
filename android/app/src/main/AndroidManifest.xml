@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:name="android.hardware.usb.host" android:required="true" />
+
+    <!-- ★ 出网权限：fetchTextAsync（检查更新）是第一个真实网络调用。
+       以前没声明 —— WebView 页面走 shouldInterceptRequest 拦本地 assets、
+       USB 走原生 socket，全都绕开了 INTERNET 权限，所以一直没暴露（beta22 实锤）。 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- 前台服务：ColorOS/MIUI 会冻结后台进程，必须挂前台才能持续读表 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- ★ 免 SAF 直读/直写可移动 U 盘（RKX3IAP）方案已于 beta24 整体移除（用户 2026-10-12）：
+         实测即便授予"所有文件访问权限"，U 盘升级仍会弹 SAF 授权 → 该权限无用，撤回申请。
+         U 盘刷写统一走 SAF（ACTION_OPEN_DOCUMENT_TREE），用户授权一次即可。 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <application
+        android:label="RYKEN"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:theme="@android:style/Theme.Material.NoActionBar"
+        android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="true"
+        android:supportsRtl="false">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|keyboardHidden|uiMode|density|fontScale">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- 插上功率表自动唤起 -->
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/device_filter" />
+        </activity>
+
+        <service
+            android:name=".KeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+    </application>
+</manifest>

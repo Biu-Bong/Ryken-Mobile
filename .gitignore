@@ -1,0 +1,64 @@
+# ══════════════════════════════════════════════════════════════
+#  RYKEN Mobile — Git 忽略规则
+#  原则：源码进仓库；产物、固件、抓包、调试垃圾一律不进
+# ══════════════════════════════════════════════════════════════
+
+# ── ⚠️ 厂商固件（版权属瑞垦 RYKEN，任何人不得分发）──
+*.bin
+*.hex
+*.rar
+*.zip
+
+# ── 构建产物：走 GitHub Releases 发布，不进仓库 ──
+*.APK
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# ⚠️ Git 不支持「行尾注释」—— 模式后面写 # 注释会让整行都变成模式、规则**静默失效**。
+#    所有说明一律写在**上一行**，模式行保持干净。
+#    （历史坑：下面两条 + 内部资料那几条原先都带行尾注释，等于没写。）
+
+# ── Android / Gradle ──
+android/app/build/
+android/build/
+android/.gradle/
+android/.cxx/
+# 机器本地路径；build.sh / build.bat 会自动生成
+android/local.properties
+# 构建时从根 index.html + assets/ 同步的副本（提交会导致双份不同步）
+android/app/src/main/assets/www/
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ── 调试 / 抓包 / 临时产物 ──
+.tmp-*
+*.log
+*.pcap
+*.pcapng
+*.hprof
+
+# ── 编辑器 / 系统 ──
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── 内部资料：不随仓库公开 ──
+# 项目内部记忆（含用户对话 / 决策记录）
+.workbuddy/
+# 发布前自查备忘（见该文件首行说明）
+开源发布清单.md
+
+# ── 开发垃圾（见「开源发布清单.md」第二节）──
+# index.html 的旧副本
+__p.html
+# 临时抽码脚本
+_plan_extract.mjs

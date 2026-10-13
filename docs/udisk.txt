@@ -1,0 +1,30 @@
+
+===== F:\ =====
+
+[.]
+   README.txt        4,442 B   2026-08-29 12:34:14
+
+[System Volume Information]
+   IndexerVolumeGuid           76 B   2026-03-07 11:03:36
+   WPSettings.dat           12 B   2026-03-07 11:03:38
+
+[logo]
+   logo.bmp      115,272 B   2026-04-17 19:30:08
+   logoP.bmp      115,272 B   2026-04-26 18:03:16
+
+[DATA]
+   (空)
+
+[main]
+   chpro.bmp      115,266 B   2026-08-29 14:49:20
+   main.txt            0 B   2026-02-06 12:21:30
+   update.txt            0 B   2026-02-22 15:01:02
+
+===== E:\ =====
+
+[.]
+   Ready.TXT           -1 B   [WinError 2] 系统找不到指定的文件。: 'E:\\Ready.TXT'
+
+[System Volume Information]
+   IndexerVolumeGuid           76 B   2026-10-12 07:46:32
+   WPSettings.dat           12 B   2026-10-12 07:46:32

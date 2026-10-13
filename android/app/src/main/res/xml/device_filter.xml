@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    RK-X3 / X3 SE / X3 Pro 功率表
+    VID 0x2E3C = 11836   PID 0xAF03 = 44803
+    厂商自定义 HID（UsagePage 0xFF00），Input 报告 65 字节
+-->
+<resources>
+    <usb-device vendor-id="11836" product-id="44803" />
+</resources>

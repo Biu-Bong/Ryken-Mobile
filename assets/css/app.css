@@ -1,0 +1,1783 @@
+/* ═══════════════════════════════════════════════════
+   RYKEN Mobile — 设计系统
+   ═══════════════════════════════════════════════════ */
+
+html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+:root{
+  --fscale: 1;
+  /* 底色 */
+  --bg:        #080a0f;
+  --bg-2:      #0d1119;
+  --panel:     #141b26;
+  --panel-2:   #1a2331;
+  --panel-3:   #212c3d;
+  /* 统计浮层（悬在曲线图上）。用户 2026-10-12 两轮定稿：
+     ① 面板 50% 透明度；② 标题栏 80% 不透明 + 整体对比度拉高（50% 底上原文字发灰看不清）
+     ⚠ 2026-10-13：容器不再铺底，底色改由每行自己带（标题栏 .mp-hd / .stt-row.stt-hd 80%，
+     信息行 .mp-row / .stt-row 50%）—— 此前 80% 又叠在容器的 50% 上，实际约 90%。 */
+  --stat-bg:   rgba(13,18,27,.5);
+  --stat-hd:   rgba(13,18,27,.8);
+  --stat-line: rgba(160,185,215,.3);
+  --stat-tx:   #ffffff;
+  --stat-tx-dim: #b9c8dd;
+  --line:      #24303f;
+  --line-soft: #1b2532;
+
+  /* 文字 */
+  --tx:        #e8eef8;
+  --tx-2:      #93a3ba;
+  --tx-3:      #5d6b80;
+
+  /* 曲线读数浮层底色（Beta20，用户 2026-10-11 指定 50% 半透明）。
+     ⚠ 必须做成主题变量：这个浮层压在**画布**上，而画布底色跟主题走 ——
+       原来这里是硬编码的 rgba(16,22,32,.96)，浅色主题下就成了
+       「深色底 + 深色字」，对比度实测只有 1.14（WCAG 要 4.5），肉眼就是
+       「点击后只有一块深色背景、什么内容都没有」。 */
+  --tip-bg:    rgba(14,20,29,.5);
+
+  /* 动作 */
+  --accent:    #2f7df6;
+  --accent-2:  #1b5fd0;
+
+  /* 数据系列色（与电脑端一致） */
+  --c-vbus:   #22c55e;
+  --c-ibus:   #3b82f6;
+  --c-pwr:    #ef4444;
+  --c-cc1:    #ec4899;
+  --c-cc2:    #06b6d4;
+  --c-dp:     #14b8a6;
+  --c-dm:     #16a34a;
+  --c-temp:   #a855f7;
+  --c-batt:   #f59e0b;
+  --c-cap:    #38bdf8;
+  --c-wh:     #fb923c;
+  --c-pct:    #e5e7eb;
+
+  --r:   14px;
+  --r-s: 10px;
+  --pad: 12px;
+
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+
+  /* 原生传入的系统栏尺寸（沉浸模式：页面自己垫高顶栏/底栏，背景铺到系统栏底下）。
+     l/r 是挖孔/刘海 —— 横屏时挖孔在侧边，内容靠它让开。 */
+  --sys-t: 0px;
+  --sys-b: 0px;
+  --sys-l: 0px;
+  --sys-r: 0px;
+
+  --topbar-h: 52px;
+  --tabbar-h: 58px;
+
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+}
+
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+html,body{ height:100%; margin:0; }
+
+body{
+  background:var(--bg);
+  color:var(--tx);
+  font:400 calc(14px * var(--fscale))/1.45 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+  overscroll-behavior:none;
+  -webkit-font-smoothing:antialiased;
+}
+
+#app{
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  max-width:720px;
+  margin:0 auto;
+  position:relative;
+  background:
+    radial-gradient(1000px 420px at 50% -180px, rgba(47,125,246,.16), transparent 70%),
+    var(--bg);
+}
+
+/* ═══════════ 顶栏（手机竖屏 = 两行；横屏/平板单行，见横屏 MQ）═══════════
+   行1：品牌（RK 徽标 + RYKEN）与 连接状态胶囊 作为一组**居中**，其余什么都不放；
+   行2：APP版本号 · 型号 · SN · 固件版本 四个胶囊一行放下（挖孔/刘海靠 sys-l/r 让位）。
+   实现：grid 两列两行 —— brand 右对齐于左半、pill 左对齐于右半，视觉上居中成组。 */
+.topbar{
+  min-height:calc(var(--topbar-h) + var(--sys-t, var(--safe-t)));
+  padding-top:var(--sys-t, var(--safe-t));
+  padding-bottom:5px;
+  /* 顶栏内容贴到两边；挖孔/刘海处用 max() 让开 */
+  padding-left:max(8px, var(--sys-l, var(--safe-l)));
+  padding-right:max(8px, var(--sys-r, var(--safe-r)));
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:auto auto;
+  grid-template-areas:
+    "brand pill"
+    "info  info";
+  row-gap:4px;
+  align-items:center;
+  flex:0 0 auto;
+  background:rgba(8,10,15,.94);
+  /* ⚠ 不用 backdrop-filter 毛玻璃：滚动时每帧重算 GPU 模糊，WebView 上滑动明显卡顿
+     （用户 2026-10-10）。底色提高不透明度补回可读性 */
+  border-bottom:1px solid var(--line-soft);
+  position:relative; z-index:20;
+}
+.brand{ grid-area:brand; justify-self:start; }
+.conn-pill{ grid-area:pill; justify-self:end; }
+/* 行2：四个信息胶囊**分散居中**（space-between）——
+   左端与 LOGO 左边缘对齐、右端与「已连接」右边缘对齐（同一内边距边界，天然对齐），
+   空隙相等；超宽时靠 .ti b 的省略号收缩，不会重叠（用户 2026-10-10 定稿）。
+   顺序 = APP版本 → 型号 → 固件 → SN */
+.tb-info{
+  grid-area:info;
+  display:flex; justify-content:space-between; align-items:center; gap:6px;
+  min-width:0; max-width:100%;
+}
+.tb-info > *{ min-width:0; }
+.tb-ver{ order:1; }
+.ti-model{ order:2; }
+.ti-fw{ order:3; }
+.ti-sn{ order:4; }
+.tb-i{ min-width:0; max-width:100%; }
+/* 软件版本号：按用户要求**也做成胶囊**（与型号/SN/固件同款外观），
+   但不带 i 小标签——文字本身就是内容。行高/内边距刻意与 .ti 对齐，
+   这样四格高度一致。 */
+.tb-ver{
+  display:block;
+  font:600 calc(10px * var(--fscale))/1.25 var(--mono); color:var(--tx-2); letter-spacing:.02em;
+  padding:2px 6px; border-radius:6px;
+  background:var(--panel); border:1px solid var(--line-soft);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.brand{ display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+/* 品牌徽标：红底白字，与 App 图标同源（官网字标字形 + 品牌红 #FF0000） */
+.brand-rk{
+  font:800 calc(14px * var(--fscale))/1 var(--mono); letter-spacing:.5px;
+  background:#ff0000; color:#fff;
+  padding:4px 7px; border-radius:7px;
+}
+.brand-en{ font:700 calc(16px * var(--fscale))/1 -apple-system,sans-serif; letter-spacing:.13em; color:var(--tx); }
+
+/* 设备信息胶囊（型号 / SN / 固件）。顶栏窄到 360px 也要排得下，所以做小 */
+.ti{
+  display:flex; align-items:baseline; gap:4px;
+  min-width:0; max-width:100%;
+  padding:2px 6px; border-radius:6px;
+  background:var(--panel); border:1px solid var(--line-soft);
+}
+.ti i{ font-style:normal; font-size:calc(8.5px * var(--fscale)); color:var(--tx-3); letter-spacing:.04em; flex:0 0 auto; }
+.ti b{
+  font:600 calc(10px * var(--fscale))/1.25 var(--mono); color:var(--tx-2);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;
+}
+/* 「固件」那格是 <button>：点了跳固件页，先抹掉浏览器按钮默认样式 */
+.ti-fw{
+  font:inherit; font-family:inherit; text-align:left; color:inherit;
+  cursor:pointer; -webkit-appearance:none; appearance:none;
+}
+.ti-fw:active{ transform:scale(.97); }
+.ti-fw:hover{ border-color:var(--line); }
+
+.conn-pill{
+  display:flex; align-items:center; gap:5px; flex:0 0 auto;
+  padding:4px 9px; border-radius:999px;
+  background:var(--panel); border:1px solid var(--line);
+  color:var(--tx-2); font-size:calc(11px * var(--fscale)); cursor:pointer;
+  transition:border-color .2s, color .2s;
+}
+.conn-pill:active{ transform:scale(.97); }
+.conn-pill .dot{
+  width:7px; height:7px; border-radius:50%;
+  background:#667085; box-shadow:0 0 0 0 rgba(102,112,133,.5);
+}
+.conn-pill.on{ border-color:rgba(34,197,94,.4); color:#86efac; }
+.conn-pill.on .dot{ background:#22c55e; animation:pulse 2s infinite; }
+@keyframes pulse{
+  0%{ box-shadow:0 0 0 0 rgba(34,197,94,.5); }
+  70%{ box-shadow:0 0 0 7px rgba(34,197,94,0); }
+  100%{ box-shadow:0 0 0 0 rgba(34,197,94,0); }
+}
+
+/* ═══════════ 迷你分段选择（替代原生 select 弹窗）═══════════ */
+.seg-tabs.mini{ display:inline-flex; gap:4px; align-items:center; }
+.seg-tabs.mini .seg{
+  padding:5px 10px; font-size:calc(11.5px * var(--fscale)); border-radius:8px;
+}
+
+/* 图表画布：纵向滑动交给页面滚动（横向仍用于拖动/缩放） */
+.chart-wrap{ touch-action:pan-y; }
+.chart-wrap canvas{ touch-action:pan-y; }
+/* ↑ 主定义；下方 .chart-wrap 主块里的 touch-action:none 已移除，否则图上竖滑无法滚动页面 */
+
+/* ═══════════ 日志与诊断 ═══════════ */
+.log-box{
+  width:100%; min-height:130px; resize:vertical;
+  background:var(--panel-2); border:1px solid var(--line); border-radius:9px;
+  color:var(--tx-2); font:calc(11px * var(--fscale))/1.6 var(--mono, ui-monospace, monospace);
+  padding:8px 9px; outline:none;
+}
+
+/* ═══════════ 视图容器 ═══════════ */
+/* tabbar 是 flex 流里的兄弟节点（不是 fixed），所以底部不用再垫一个 tabbar 高度，
+   否则每个页面都白滚 58px。 */
+.views{
+  flex:1 1 auto; min-height:0;
+  overflow-y:auto; overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  padding-top:10px; padding-bottom:14px;
+  /* 中间数据卡不贴边（留 10px），但同样避开挖孔；两侧空隙由 #app 的背景色填充 */
+  padding-left:max(10px, var(--sys-l, var(--safe-l)));
+  padding-right:max(10px, var(--sys-r, var(--safe-r)));
+}
+.view{ display:none; flex-direction:column; gap:10px; }
+.view.is-active{ display:flex; animation:fadeUp .26s cubic-bezier(.2,.7,.3,1); }
+@keyframes fadeUp{ from{ opacity:0; transform:translateY(8px);} to{ opacity:1; transform:none;} }
+/* 横滑切页方向过渡（Beta 15）：跟随滑动方向滑入 */
+@keyframes slideNext{ from{ opacity:.35; transform:translateX(36px);} to{ opacity:1; transform:none;} }
+@keyframes slidePrev{ from{ opacity:.35; transform:translateX(-36px);} to{ opacity:1; transform:none;} }
+.view.slide-next{ animation:slideNext .2s ease-out; }
+.view.slide-prev{ animation:slidePrev .2s ease-out; }
+
+/* ═══════════ 通用卡片 ═══════════ */
+.card{
+  background:linear-gradient(180deg, var(--panel), var(--bg-2));
+  border:1px solid var(--line-soft);
+  border-radius:var(--r);
+  padding:11px;
+}
+.card.grow{ flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
+.card-hd{
+  display:flex; align-items:center; justify-content:space-between;
+  font-size:calc(12.5px * var(--fscale)); font-weight:600; color:var(--tx-2);
+  margin-bottom:9px; letter-spacing:.02em;
+}
+.card-hd .hd-actions{ display:flex; align-items:center; gap:6px; }
+
+.hint{ margin:0 0 9px; font-size:calc(12px * var(--fscale)); line-height:1.6; color:var(--tx-3); }
+.spacer{ flex:1 1 auto; }
+
+/* ═══════════ 主数据（电压 / 电流 / 功率）═══════════ */
+.hero-stack{ display:flex; flex-direction:column; gap:8px; min-height:0; }
+.hero-card{
+  position:relative; overflow:hidden;
+  border-radius:var(--r); padding:7px 10px 2px;
+  background:var(--panel);
+  border:1px solid var(--line-soft);
+  /* 左右两半：左 = 数值+单位，右 = MAX/AVG 两行。
+     汉字标签已删，只剩 VBUS/IBUS/PWR 小代号。
+     ★ 对齐语义（用户澄清）：**「居中」是上下居中，不是左右居中** ——
+       整组（代号 / 数值 / MAX-AVG）在卡内 `align-content:center` 垂直居中，
+       水平方向一律**左对齐**（代号、数值、MAX-AVG 共用同一左边界）。
+     刻意不用 justify-items:center —— 让列保持 stretch，靠列内 flex 限制宽度，
+     长数值才会正确收缩而不是溢出。 */
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto minmax(0,1fr) auto;   /* 主值行吃富余，MAX/AVG 行 auto 贴卡底（用户 2026-10-11） */
+  grid-template-areas:
+    "label"
+    "val"
+    "sub";
+  align-items:center;
+  column-gap:6px; row-gap:2px;
+  min-height:0;
+}
+.hero-card::before{
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(150deg, var(--accent-c, #2f7df6) 0%, transparent 62%);
+  opacity:.16; pointer-events:none;
+}
+.hero-card::after{
+  content:""; position:absolute; left:0; top:0; bottom:0; width:3px;
+  background:var(--accent-c, #2f7df6);
+  box-shadow:0 0 16px var(--accent-c, #2f7df6);
+}
+.hero-card.v{ --accent-c:var(--c-vbus); }
+.hero-card.i{ --accent-c:var(--c-ibus); }
+.hero-card.p{ --accent-c:var(--c-pwr); }
+
+.hero-label{
+  grid-area:label;
+  display:flex; align-items:baseline; justify-content:flex-start; gap:5px;
+  font-size:calc(11.5px * var(--fscale)); color:var(--tx-2);
+}
+.hero-label em{
+  font-style:normal; font:700 calc(10.5px * var(--fscale))/1 var(--mono);
+  color:var(--accent-c); opacity:.9; letter-spacing:.06em;
+}
+/* 首字 = 数值 + 单位：**左对齐**（与上方的代号共用左边界），字号尽量大。
+   Beta19：字体颜色跟随卡片对角色（绿/蓝/红，与曲线 tab 统计卡一致，用户 2026-10-11），
+   横屏竖屏同规则；底色渐变/光晕同源，暗亮主题下都可读。 */
+.hero-val{
+  grid-area:val;
+  display:flex; align-items:baseline; justify-content:flex-start; gap:2px;
+  min-width:0;
+  /* 用户 2026-10-11：字号×2（原 clamp(24,8vw,34)）——MuMu 竖屏 480 渲染 68px、
+     手机 360 竖屏 57.6px，8ch 数字 253px 全宽放得下 */
+  font:700 clamp(48px,16vw,68px)/1 var(--mono);
+  font-variant-numeric:tabular-nums;
+  color:var(--accent-c, var(--tx)); letter-spacing:-.02em;
+  text-shadow:0 0 26px color-mix(in srgb, var(--accent-c) 42%, transparent);
+}
+/* 数值占满时不能把单位挤出去：数字可截断，单位固定可见。
+   Beta19：数字区定宽 8ch（= 7 位有效数字 + 1 小数点，如 19.12345）——
+   toFixed(5) 恒 8 字符，单位位置恒定不随数字跳动（用户 2026-10-11）；
+   整数进到 3 位（≥100）才会多占 1 字符，属罕见场景。 */
+.hero-val > span{ min-width:8ch; overflow:hidden; white-space:nowrap; }
+.hero-val i{ flex:0 0 auto; font-style:normal; font-size:calc(22px * var(--fscale)); font-weight:600; color:var(--accent-c); }
+/* MAX / AVG：一行（MAX 左、AVG 右分列两端），数字 700 白粗与曲线卡统一
+   （用户 2026-10-11：竖屏 hero 卡改三行堆叠后 sub 全宽一行） */
+.hero-sub{
+  grid-area:sub;
+  display:flex; flex-direction:row; align-items:baseline; justify-content:space-between; gap:8px;
+  font:400 calc(10px * var(--fscale))/1.3 var(--mono); color:var(--tx-3);   /* 标签/数字/单位全部 mono 400（与曲线卡 em 一致，用户 2026-10-11） */
+  /* 数字/单位统一白色（用户 2026-10-11：颜色不统一）——标签 MAX/AVG 保持灰 */
+  white-space:nowrap; min-width:0; text-align:left;
+}
+.hero-sub span{ flex:0 1 auto; overflow:hidden; text-overflow:ellipsis; }
+/* Beta19 定宽列（用户 2026-10-11：MAX/AVG 和单位固定住，别随数字来回跳）：
+   .rs = 一行统计值 = 标签(MAX/AVG 3.5ch) + 数字区(8ch，左对齐) + 单位(2ch)。
+   数字区恒 8ch（7 位有效数字+小数点），标签与单位位置恒定；
+   数字前后各 .5ch 空隙 ≈ 原文本空格的观感。 */
+.hero-sub .rs{ display:flex; align-items:baseline; min-width:0; align-self:center; }
+.hero-sub .rs .k{ flex:0 0 auto; width:3.5ch; margin-right:.5ch; font-style:normal; }
+/* 数字 = 曲线卡统计数字同款（700 加粗 + 白色 var(--tx)，用户 2026-10-11：别用灰细） */
+.hero-sub .rs b{ flex:0 1 auto; width:8ch; min-width:8ch; overflow:hidden; white-space:nowrap; font-weight:400; color:var(--tx-3); font-variant-numeric:tabular-nums; }
+.hero-sub .rs u{ color:var(--tx-3); }
+/* 竖屏实时 MAX/AVG 同样不带单位（用户 2026-10-11；曲线竖屏表格保留单位） */
+.hero-sub .rs u{ display:none; }
+
+/* ═══════════ 辅助数据（CC1/CC2/D±/温度/电量/容量/能量）═══════════ */
+/* 竖屏：4 列 × 2 行；横屏：单列 8 行（见文末「实时页布局」一节） */
+.aux-stack{ display:grid; grid-template-columns:repeat(4,1fr); gap:7px; min-width:0; }
+/* 用 grid 而不是 flex-column：有单位（CC/D±）和没单位（温度/电量…）的行高才会一致 */
+.aux{
+  display:grid;
+  grid-template-columns:auto auto;
+  grid-template-areas:"k k" "v u";
+  justify-content:center; align-content:center; align-items:center;
+  gap:2px 2px;
+  background:var(--panel); border:1px solid var(--line-soft);
+  border-radius:var(--r-s); padding:7px 4px; min-width:0;
+}
+/* 用户 2026-10-11 竖屏定稿：数值和单位**贴在一起**组成整体、整体水平+垂直居中
+   （不再「值居中、单位贴右缘」的两端分离式） */
+.aux .ak{ grid-area:k; font-size:calc(9.5px * var(--fscale)); color:var(--tx-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; text-align:center; }
+.aux .av{ grid-area:v; font:700 calc(13px * var(--fscale))/1 var(--mono); font-variant-numeric:tabular-nums; color:inherit; white-space:nowrap; }
+.aux i{ grid-area:u; font-style:normal; font-size:calc(9.5px * var(--fscale)); color:inherit; padding-left:2px; }
+/* 单位颜色跟随数值（用户 2026-10-11：别用灰）——色设在卡容器级，.ak 键显式回灰 */
+.aux[data-m="cc1"]{ color:var(--c-cc1); }
+.aux[data-m="cc2"]{ color:var(--c-cc2); }
+.aux[data-m="dp"]{ color:var(--c-dp); }
+.aux[data-m="dm"]{ color:var(--c-dm); }
+.aux[data-m="temp"]{ color:var(--c-temp); }
+.aux[data-m="batt"]{ color:var(--c-batt); }
+.aux[data-m="cap"]{ color:var(--c-cap); }
+.aux[data-m="wh"]{ color:var(--c-wh); }
+
+/* ═══════════ 图表 ═══════════ */
+/* 图表贴满卡片（用户 2026-10-10）：负外边距吃掉卡片内边距，画布/轴刻度直达卡片边缘。
+   ⚠ 只写负 margin 时右边界不会外扩：width:100% 已把 border-box 宽度钉死在内容宽，
+   负 margin-right 只影响后续排布，结果左侧外扩 8px、右侧反而比内容区还缩进 8px
+   →「曲线右边一片空白」的真正来源（用户 2026-10-10 截图反馈）。
+   必须同步 width:calc(100% + 16px) 让 border-box 真正越过两侧内边距。 */
+.live-chart-card .chart-wrap{ margin-left:-8px; margin-right:-8px; width:calc(100% + 16px); }
+#view-chart .card.grow .chart-wrap{ margin-left:-8px; margin-right:-8px; width:calc(100% + 16px); }
+.chart-wrap{
+  position:relative; width:100%;
+  border-radius:var(--r-s); overflow:hidden;
+  background:linear-gradient(180deg,#0a0e15,#080b11);
+  border:1px solid var(--line-soft);
+  /* pan-y：竖滑 = 页面滚动（带原生惯性）；横滑 = 图表拖动；捏合 = 图表缩放 */
+  touch-action:pan-y;
+}
+.live-chart{ height:clamp(170px, 24vh, 300px); }
+
+/* 竖屏手机（窄且竖）：曲线加高（用户 2026-10-10：尽量大）——
+   按钮行跟在曲线后，首屏内仍可见（底栏上方）；采样参数在更下方，滚动可达。
+   ⚠ 2026-10-10：数值按要求放大（26→28px 档），靠微调曲线高度把纵向空间换回来。 */
+@media (max-aspect-ratio: 1/1) and (max-width: 899px){
+  .hero-card{ padding:7px 10px 2px; }   /* MAX/AVG 贴底（用户 2026-10-11；此前 8px 覆盖基础档 2px） */
+  .hero-label{ font-size:calc(10px * var(--fscale)); }
+  .hero-val{ font-size:clamp(24px, 8vw, 32px); }
+  .aux{ padding:5px 4px; }
+  .live-chart{ height:clamp(180px, 26vh, 300px); }
+  /* 曲线精确高度由 JS 适配（fitPortraitLive）：初始显示时「停止/清零」正好贴在底栏上缘，
+     采样参数在折叠线以下滚动可达。此处 clamp 仅作 JS 未跑时的兜底。 */
+  /* ⟲ 复位按钮：外框不变，圈形图标加大 */
+  #btnLiveClear{ font-size:calc(16px * var(--fscale)); padding:2px 9px; }
+}
+
+/* 极窄屏（≤380px，如 360×780）：顶栏 2×2 四格 + LOGO + 连接胶囊挤不下，
+   "v0.5.4-beta10" 和 SN 会被省略号截掉 —— 这一档整体再收一号。
+   ⚠ 实测：360px 下不这么做，版本号与 SN 双双截断。 */
+/* 版本号 10 → 9.5px：+胶囊内边距后 390px 这种宽度只差几像素就截断。
+   单独一档，只动版本号（型号/SN 的字号留到 380px 档再统一收）。 */
+@media (max-width: 400px){
+  .tb-ver{ font-size:calc(9.5px * var(--fscale)); }
+}
+@media (max-width: 380px){
+  .topbar{ gap:6px; }
+  .brand{ gap:6px; }
+  .brand-rk{ font-size:calc(12px * var(--fscale)); padding:3px 6px; }
+  .brand-en{ font-size:calc(14px * var(--fscale)); letter-spacing:.1em; }
+  .tb-info{ column-gap:6px; }
+  .ti i{ font-size:calc(8px * var(--fscale)); }
+  .ti b{ font-size:calc(9.5px * var(--fscale)); }
+  .conn-pill{ padding:3px 7px; font-size:calc(10px * var(--fscale)); gap:4px; }
+}
+.full-chart{ flex:1 1 auto; min-height:240px; height:100%; }
+canvas{ display:block; width:100%; height:100%; }
+
+.chart-tip{
+  position:absolute; pointer-events:none; opacity:0;
+  transform:translate(-50%,-100%);
+  /* ⚠ 用主题变量，别硬编码深色 —— 浅色主题下会变成「深底深字」看不见文字（详见 --tip-bg 注释） */
+  background:var(--tip-bg);
+  border:1px solid var(--line);
+  border-radius:9px; padding:7px 9px;
+  font:500 calc(11px * var(--fscale))/1.5 var(--mono); font-variant-numeric:tabular-nums;
+  color:var(--tx); white-space:nowrap;
+  box-shadow:0 8px 26px rgba(0,0,0,.3);
+  transition:opacity .12s; z-index:5;
+  /* 半透明底上给文字留一层描边，曲线从底下穿过时数字仍读得清 */
+  text-shadow:0 1px 2px var(--tip-shadow, rgba(0,0,0,.5));
+}
+.chart-tip.show{ opacity:1; }
+.chart-tip .tt-h{ color:var(--tx-3); font-size:calc(10px * var(--fscale)); margin-bottom:3px; }
+.chart-tip .tt-r{ display:flex; align-items:center; gap:6px; }
+.chart-tip .tt-s{ width:7px; height:7px; border-radius:2px; flex:0 0 auto; }
+.chart-tip .tt-v{ margin-left:auto; padding-left:10px; }
+
+/* 图例：正常三等分一行，标签位置固定（列宽恒定，数值变化不带动标签） */
+.live-legend{
+  display:grid; grid-template-columns:repeat(3, minmax(0,1fr));
+  column-gap:8px; margin-top:8px;
+}
+.live-legend span{
+  display:flex; align-items:center; gap:4px;
+  font-size:calc(10px * var(--fscale)); color:var(--tx-2); min-width:0; overflow:hidden;
+  white-space:nowrap;
+}
+.live-legend i{ width:9px; height:3px; border-radius:2px; }
+
+.axis-foot{
+  display:flex; justify-content:space-between;
+  font:500 calc(10px * var(--fscale))/1 var(--mono); color:var(--tx-3); margin-top:6px;
+}
+
+/* ═══════════ 表单 ═══════════ */
+.field{ display:flex; flex-direction:column; gap:5px; }
+.field > span{ font-size:calc(11px * var(--fscale)); color:var(--tx-3); }
+
+/* 「采样与记录」的两行：一行一条（宽屏），窄屏各自 wrap。
+   行内每一项都是「标签 + 控件」横排 —— 比上下堆叠省一半高度。 */
+.param-row{ display:flex; flex-wrap:wrap; align-items:center; gap:7px 12px; }
+.param-row + .param-row{ margin-top:8px; }
+.live-param-card .field{ flex-direction:row; align-items:center; gap:5px; }
+.live-param-card .field > span:first-child{ font-size:calc(11px * var(--fscale)); color:var(--tx-3); white-space:nowrap; }
+.pstat{
+  display:flex; align-items:baseline; gap:5px;
+  font-size:calc(11px * var(--fscale)); color:var(--tx-3); white-space:nowrap;
+}
+.pstat b{ font:700 calc(11.5px * var(--fscale))/1 var(--mono); color:var(--tx-2); font-variant-numeric:tabular-nums; }
+/* ⚠ input 不继承父级 color，且属性选择器只匹配「写了该属性」的元素 ——
+   `#sOv/#sOi/#sOp`（曲线坐标偏移倍数）没写 type，匹配不到下面这条，
+   于是吃 UA 默认黑字，暗色主题下就是"看不清"（用户 2026-10-11）。
+   `input:not([type])` 兜住这一类，别再依赖"记得写 type"。 */
+select, input[type="text"], input:not([type]){
+  width:100%; appearance:none;
+  background:var(--panel-2); color:var(--tx);
+  border:1px solid var(--line); border-radius:9px;
+  padding:8px 9px; font:600 calc(12.5px * var(--fscale))/1 var(--mono);
+  outline:none;
+}
+select{
+  background-image:linear-gradient(45deg,transparent 50%,var(--tx-3) 50%),linear-gradient(135deg,var(--tx-3) 50%,transparent 50%);
+  background-position:calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+  background-size:5px 5px,5px 5px; background-repeat:no-repeat;
+  padding-right:26px;
+}
+select:focus,input:focus{ border-color:var(--accent); }
+
+.num-edit{
+  display:flex; align-items:center; gap:0;
+  background:var(--panel-2); border:1px solid var(--line);
+  border-radius:9px; overflow:hidden;
+}
+.num-edit button{
+  flex:0 0 auto; width:30px; height:32px;
+  background:transparent; border:0; color:var(--tx-2);
+  font-size:calc(16px * var(--fscale)); cursor:pointer;
+}
+.num-edit button:active{ background:var(--panel-3); color:var(--tx); }
+.num-edit input{
+  flex:1 1 auto; min-width:0; text-align:center;
+  background:transparent; border:0; padding:8px 0;
+  /* 显式给颜色，不依赖上一条选择器是否匹配（这些框历史上没写 type） */
+  color:var(--tx); font:600 calc(12.5px * var(--fscale))/1 var(--mono);
+}
+.num-edit i{ font-style:normal; font-size:calc(10px * var(--fscale)); color:var(--tx-3); padding-right:9px; }
+
+.sw, .sw-row{ display:flex; align-items:center; gap:8px; font-size:calc(12px * var(--fscale)); color:var(--tx-2); }
+.sw-row{ justify-content:space-between; padding:6px 0; }
+.sw input{ display:none; }
+.sw i{
+  position:relative; width:34px; height:19px; border-radius:999px;
+  background:var(--panel-3); border:1px solid var(--line);
+  transition:background .2s, border-color .2s; flex:0 0 auto;
+}
+.sw i::after{
+  content:""; position:absolute; top:1.5px; left:1.5px;
+  width:14px; height:14px; border-radius:50%;
+  background:#7c8a9e; transition:transform .2s, background .2s;
+}
+.sw input:checked + i{ background:rgba(47,125,246,.28); border-color:var(--accent); }
+.sw input:checked + i::after{ transform:translateX(15px); background:var(--accent); }
+.sw{ flex-direction:row-reverse; }
+.sw span{ white-space:nowrap; }
+.sw.tiny{ font-size:calc(11px * var(--fscale)); }
+.sw.tiny i{ width:28px; height:16px; }
+.sw.tiny i::after{ width:11px; height:11px; }
+.sw.tiny input:checked + i::after{ transform:translateX(12px); }
+
+/* ═══════════ 按钮 ═══════════ */
+.btn{
+  appearance:none; border:1px solid var(--line);
+  background:var(--panel-2); color:var(--tx);
+  border-radius:11px; padding:10px 14px;
+  font:600 calc(13px * var(--fscale))/1 -apple-system,sans-serif;
+  /* 按钮文案永远不折行：手机把系统字体放大后，窄按钮里的「开始记录」会被拆成两行 */
+  white-space:nowrap;
+  cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  transition:transform .12s, background .18s, opacity .18s;
+}
+.btn:active{ transform:scale(.975); }
+.btn.primary{
+  background:linear-gradient(180deg,var(--accent),var(--accent-2));
+  border-color:transparent; color:#fff;
+  box-shadow:0 6px 18px rgba(47,125,246,.32);
+}
+.btn.primary:disabled{ opacity:.4; box-shadow:none; }
+.btn.ghost{ background:var(--panel); color:var(--tx-2); }
+.btn.big{ flex:1; padding:14px; font-size:calc(15px * var(--fscale)); border-radius:13px; }
+.btn.sm{ padding:8px 12px; font-size:calc(12px * var(--fscale)); border-radius:9px; }
+.btn.wide{ width:100%; }
+
+.btn .ri{
+  width:0; height:0;
+  border-left:9px solid currentColor;
+  border-top:6px solid transparent; border-bottom:6px solid transparent;
+  display:inline-block;
+}
+.btn .ri.stop{
+  width:10px; height:10px; border:0; border-radius:2px; background:currentColor;
+}
+.action-bar{ display:flex; gap:9px; }
+
+.icon-btn{
+  appearance:none; background:var(--panel-2); border:1px solid var(--line);
+  color:var(--tx-2); border-radius:8px; padding:5px 9px;
+  font:600 calc(11px * var(--fscale))/1 var(--mono); cursor:pointer;
+}
+.icon-btn:active{ background:var(--panel-3); }
+/* 视图模式激活态（Beta20，用户 2026-10-11：跟随/缩放两个按钮原来长得一模一样，
+   看不出哪个生效）。用交互主色实底 + 亮字 —— 比只改边框颜色一眼能分辨。
+   拖拽/捏合进入「自由查看」时两个都不亮，用户就知道自己不在任何自动模式里。 */
+.icon-btn.on{
+  color:#fff;
+  background:var(--accent);
+  border-color:var(--accent);
+  box-shadow:0 0 0 1px rgba(47,125,246,.35), 0 1px 6px rgba(47,125,246,.35);
+}
+
+.mini-sel{
+  width:auto; padding:5px 24px 5px 9px; font-size:calc(11px * var(--fscale)); font-weight:500;
+  background-color:var(--panel-2); border-radius:8px;
+}
+
+/* ═══════════ 分段 / 芯片 ═══════════ */
+.seg-tabs{
+  display:flex; gap:3px; padding:3px;
+  background:var(--panel); border:1px solid var(--line-soft);
+  border-radius:11px;
+}
+.seg{
+  flex:1; appearance:none; border:0; background:transparent;
+  color:var(--tx-3); font:600 calc(12.5px * var(--fscale))/1 -apple-system,sans-serif;
+  padding:9px 4px; border-radius:8px; cursor:pointer;
+  transition:background .2s, color .2s;
+  /* 空间不足时禁止文字竖排堆叠（"默认"两字曾被挤成上下两行） */
+  white-space:nowrap;
+}
+.seg.is-active{ background:var(--panel-3); color:var(--tx); }
+
+.chips{ display:flex; flex-wrap:wrap; gap:5px; min-width:0; }
+.chips .c{
+  display:flex; align-items:center; gap:5px;
+  padding:4px 8px; border-radius:999px; cursor:pointer;
+  background:var(--panel); border:1px solid var(--line-soft);
+  font:600 calc(10px * var(--fscale))/1 var(--mono); color:var(--tx-3);
+  transition:all .18s;
+}
+.chips .c.hide{ display:none; }
+.chips .c i{ width:8px; height:8px; border-radius:2px; background:currentColor; opacity:.35; }
+.chips .c.on{ color:var(--tx); background:var(--panel-2); border-color:var(--line); }
+.chips .c.on i{ opacity:1; box-shadow:0 0 9px currentColor; }
+
+/* ═══════════ 统计表（曲线页：测量/统计模式）═══════════
+   行 = 功率/电流/电压（功率优先），列 = 当前/平均/最大。
+   Beta19 起每行包 .st-row：竖屏仍是同一张 4 列表；横屏曲线页把每行拆成左栏卡片。
+   无表格线（用户要求），行距呼吸感分隔；表头与数据列右对齐对齐（同一网格列）。 */
+.stat-table{
+  display:flex; flex-direction:column; row-gap:4px;
+  padding:10px 14px;
+  background:var(--panel);
+  border:1px solid var(--line-soft);
+  border-radius:var(--r-s);
+}
+.stat-table .st-row{
+  display:grid;
+  /* 第一列定宽（非 auto）：auto 会按各行自身代号宽（VBUS 4字/PWR 3字）独立计算，
+     三行的后续列起点错位、单位右缘差 3px 不齐（用户 2026-10-11 实测） */
+  grid-template-columns:5ch repeat(3, minmax(0,1fr));   /* 代号列（窄屏下与数据保证 ~1 空格余量） */
+  column-gap:clamp(6px, 1.8vw, 12px);
+}
+.stat-table .st-row > div{
+  display:flex; align-items:baseline; justify-content:flex-end; gap:4px;
+  min-width:0;
+}
+/* ⚠ 必须带 .st-row：.stat-table .st-row > div 的 flex-end（(0,2,1)）会压过 .stat-table .st-h（(0,2,0)），
+   表头文字不居中（用户 2026-10-11 实测） */
+.stat-table .st-row .st-h{ font-size:calc(10.5px * var(--fscale)); color:var(--tx-2); justify-content:center; }
+.stat-table .st-row .st-h:first-child{ justify-content:flex-start; }
+.stat-table .st-row .st-k{ font-weight:700; font-size:calc(13px * var(--fscale)); justify-content:flex-start; }   /* 代号左对齐：需 .st-row 提特异性压过 st-row>div 的 flex-end（同表头坑，用户 2026-10-11） */
+/* 数值按**小数点**对齐：等宽字体 + 统一 4 位小数 + 右对齐 ≈ 小数点垂直对齐 */
+.stat-table .st-v{
+  /* 窄屏（一加 363 CSS）数字 16px×8ch 会撑爆列宽压到代号列（用户 2026-10-11 真机实测）：
+     随视口缩放，480+ 仍为 16px */
+  font:400 clamp(12.5px, 3.5vw, 16px)/1.2 var(--mono); font-variant-numeric:tabular-nums;
+  color:var(--tx-3); justify-content:flex-end;   /* AVG/MAX 灰（用户 2026-10-11）；st-main 用内联色覆盖 */
+}
+/* em = 行内值标签（当前/平均/最大）：竖屏表头已标，隐藏；横屏侧栏才显示 */
+.stat-table .st-v em{ display:none; }
+.stat-table .st-v i{ font-style:normal; font-size:calc(10px * var(--fscale)); color:var(--tx-3); font-weight:400; margin-left:.5ch; }   /* 数值与单位间 1 个空格（用户 2026-10-11） */
+/* 当前值列（st-main）单位跟随数值颜色（用户 2026-10-11：别用灰色）；AVG/MAX 列单位保持灰 */
+.stat-table .st-v.st-main{ font-weight:700; }   /* 当前列与其他列一致：整体右对齐（数字 8 字符恒宽 → 小数点对齐、单位同 x；用户 2026-10-11） */
+.stat-table .st-v.st-main i{ color:inherit; }
+/* 曲线页标题行合并了 4 个按钮（跟随/适配/导出），全部压扁保证 360px 一行放下 */
+#view-chart .card-hd{ gap:4px; }
+#view-chart .card-hd .icon-btn,
+#view-chart .card-hd .btn{ padding:3px 8px; font-size:calc(10.5px * var(--fscale)); border-radius:8px; }
+
+/* ═══════════ 协议分析仪 ═══════════ */
+.pd-toolbar{ display:flex; align-items:center; gap:7px; min-width:0; }
+.pd-toolbar .sw{ flex:0 0 auto; }
+.pd-count{ font:500 calc(11px * var(--fscale))/1 var(--mono); color:var(--tx-3); }
+.pd-count b{ color:var(--tx-2); }
+/* 文本事件提示条（0x0B 帧，如"检测到 accept"） */
+.pd-events{
+  display:none; margin:0 0 6px; padding:5px 9px; border-radius:8px;
+  background:var(--panel-2); border:1px solid var(--line-soft);
+  font:500 calc(10.5px * var(--fscale))/1.4 var(--mono); color:var(--tx-2);
+  text-align:center;
+}
+.pd-events.on{ display:block; }
+/* 行内次要列（# / ID / 耗时）统一降饱和 */
+.pd-item .no,.pd-item .id{ color:var(--tx-3); }
+.pd-item .el{ color:var(--tx-3); font-size:calc(9px * var(--fscale)); }
+
+/* 列宽（Beta19 第五轮紧凑化+方向完整显示，用户 2026-10-11）：
+   - 方向列 44px：完整显示「SRC→SNK / SNK→SRC」（.dir 8.5px），不再只显半截；
+   - Msg 压缩：短名（Request/Accept/PS_RDY）完整优先，Source_Capabilities 截断可接受（用户明确）；
+   - VBUS/IBUS 内容 = 「20.050V 3.269A」（空格分隔）：竖屏列窄自动在空格处折成双行（右对齐），
+     横屏列宽自动单行（横屏 MQ 单独给 76px+）；
+   - 行内边距 8px→5px，同屏可见报文行数 +2~3 行。 */
+.pd-head{
+  display:grid; grid-template-columns:1.8em 2.4em minmax(0,1fr) 1.4em 4.4em 5em minmax(4.8em,0.5fr);
+  gap:3px; padding:0 8px 6px;
+  font:600 calc(10px * var(--fscale))/1 var(--mono); color:var(--tx-3);
+}
+/* ⚠ span 默认 stretch 拉满列宽，justify-self 无视觉效果——盒内文本对齐必须用 text-align。
+   表头全部居中（用户 2026-10-11：Msg/VBUS-IBUS 也要居中）；「右对齐」只是下面数据的事 */
+.pd-head > span{ min-width:0; overflow:hidden; white-space:nowrap; text-align:center; }
+.pd-list{
+  display:flex; flex-direction:column; gap:3px;
+  max-height:44vh; overflow-y:auto;
+}
+.pd-item{
+  display:grid; grid-template-columns:1.8em 2.4em minmax(0,1fr) 1.4em 4.4em 5em minmax(4.8em,0.5fr);
+  gap:3px; align-items:center;
+  padding:5px 8px; border-radius:8px; cursor:pointer;
+  background:var(--panel); border:1px solid var(--line-soft);
+  font:500 calc(10px * var(--fscale))/1.2 var(--mono); font-variant-numeric:tabular-nums;
+  transition:background .15s,border-color .15s;
+}
+/* VBUS/IBUS 统一居中（用户 2026-10-11 定稿：不分单行双行） */
+.pd-item > span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; justify-self:center; text-align:center; }
+/* VBUS/IBUS 统一居中（2026-10-11 定稿），竖屏窄列时 white-space:normal 自动折行 */
+.pd-item .vi{ white-space:normal; }
+.pd-item:active{ background:var(--panel-3); }
+.pd-item.sel{ border-color:var(--accent); background:var(--panel-2); }
+.pd-item .sop{ color:var(--tx-2); }
+.pd-item .msg{ color:var(--tx); font-weight:700; }
+.pd-item .dir{ font-size:calc(8.5px * var(--fscale)); white-space:nowrap; }
+.pd-item .dir.snk{ color:#22c55e; }
+.pd-item .dir.src{ color:#38bdf8; }
+.pd-item .vi{ color:var(--tx-3); font-size:calc(9.5px * var(--fscale)); text-align:center; }
+
+/* 详情（Beta19 第三轮紧凑化：上下边距收紧，让 PDO 档位在竖屏同屏更多露出） */
+.pd-detail{
+  background:var(--panel); border:1px solid var(--line-soft);
+  border-radius:var(--r); padding:8px 10px; min-height:88px;
+}
+.pd-detail-empty{ display:flex; align-items:center; justify-content:center; height:72px; font-size:calc(12px * var(--fscale)); color:var(--tx-3); }
+.pd-empty{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  min-height:96px; padding:12px; text-align:center;
+  font-size:calc(11.5px * var(--fscale)); line-height:1.8; color:var(--tx-3);
+}
+.pd-detail h4{ margin:0 0 6px; font-size:calc(12px * var(--fscale)); color:var(--tx); font-weight:700; }
+.pd-kv{ display:grid; grid-template-columns:auto 1fr; gap:3px 10px; font:500 calc(10.5px * var(--fscale))/1.45 var(--mono); }
+.pd-kv dt{ color:var(--tx-3); }
+.pd-kv dd{ margin:0; color:var(--tx); word-break:break-all; }
+.pd-pdo{
+  margin-top:7px; padding-top:7px; border-top:1px solid var(--line-soft);
+  font:500 calc(10.5px * var(--fscale))/1.55 var(--mono); color:var(--tx-2);
+}
+.pd-pdo .pdorow{ display:flex; justify-content:space-between; gap:12px; }
+.pd-pdo .pdorow b{ color:var(--tx); }
+
+/* ═══════════ 固件 / 设置行 ═══════════ */
+.fw-row{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:9px 0; border-bottom:1px solid var(--line-soft);
+  font-size:calc(12.5px * var(--fscale)); color:var(--tx-2);
+}
+.fw-row:last-of-type{ border-bottom:0; }
+.fw-row b{ font:600 calc(12.5px * var(--fscale))/1 var(--mono); color:var(--tx); }
+/* 本地固件信息：分成 3 行（固件信息 / U 盘挂载 / 授权说明），每行一个 span。
+   ⚠ 这一行必须改成**上下布局**（.fw-block）：
+   原来沿用 .fw-row 的 flex 横排 → 标签占左边、内容被挤到右侧半栏，稍长就疯狂换行，
+   左边反而空一大片（用户 2026-10-12 反馈"空间这么小，左边还有很大留白"）。
+   上下布局让内容占满整行宽度，左对齐读起来也顺。 */
+.fw-row.fw-block{ display:block; }
+.fw-row.fw-block > span:first-child{ display:block; margin-bottom:5px; }
+#fwFile{
+  display:block; max-width:none; text-align:left;
+  line-height:1.65; font-weight:600;
+  word-break:break-word;              /* 文件名很长时按词断开，不要撑破卡片 */
+}
+#fwFile > span{ display:block; }
+.fw-actions{ display:flex; gap:8px; margin-top:12px; }
+/* 「立即升级」与上面的按钮行拉开明显空隙（用户 2026-10-10：不要紧贴） */
+#view-fw #btnUpgrade{ margin-top:14px; }
+.fw-actions .btn{ flex:1; }
+.fw-actions.col{ flex-direction:column; }
+.fw-actions.col .btn{ width:100%; }
+
+.progress{
+  margin-top:11px; height:26px; border-radius:9px;
+  background:var(--panel-2); border:1px solid var(--line);
+  position:relative; overflow:hidden; display:none;
+}
+.progress.show{ display:block; }
+.progress .bar{
+  height:100%; width:0;
+  background:linear-gradient(90deg,var(--accent),#8b5cf6);
+  transition:width .25s;
+}
+.progress .pl{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font:700 calc(11px * var(--fscale))/1 var(--mono); color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.6);
+}
+
+.color-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:6px; }
+.color-item{
+  display:flex; align-items:center; gap:8px;
+  padding:7px 9px; border-radius:9px;
+  background:var(--panel-2); border:1px solid var(--line-soft);
+  font-size:calc(11.5px * var(--fscale)); color:var(--tx-2);
+}
+.color-item input[type="color"]{
+  appearance:none; -webkit-appearance:none;
+  width:26px; height:20px; padding:0; border:0; border-radius:5px;
+  background:transparent; cursor:pointer; flex:0 0 auto;
+}
+.color-item input[type="color"]::-webkit-color-swatch-wrapper{ padding:0; }
+.color-item input[type="color"]::-webkit-color-swatch{ border:1px solid rgba(255,255,255,.18); border-radius:5px; }
+.color-item span{ flex:1 1 auto; }
+
+/* ═══════════ 协议调试面板 ═══════════ */
+.dbg-stat{
+  font:600 calc(11px * var(--fscale))/1.6 var(--mono); color:var(--tx-2);
+  background:var(--panel-2); border:1px solid var(--line-soft);
+  border-radius:9px; padding:8px 9px; margin-bottom:9px;
+  word-break:break-all;
+}
+.dbg-diag{
+  font:500 calc(9.5px * var(--fscale))/1.5 var(--mono); color:var(--tx-3);
+  background:#0a0e15; border:1px solid var(--line-soft);
+  border-radius:8px; padding:7px 8px; margin-bottom:9px;
+  word-break:break-all; max-height:170px; overflow-y:auto;
+  white-space:pre-wrap; display:none;
+}
+.dbg-diag.show{ display:block; }
+.dbg-bytes{
+  display:grid; grid-template-columns:repeat(8,1fr); gap:3px;
+  font:600 calc(9px * var(--fscale))/1.3 var(--mono);
+}
+.dbg-bytes .b{
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  padding:4px 2px; border-radius:5px;
+  background:var(--panel-2); border:1px solid transparent;
+  color:var(--tx-3);
+}
+.dbg-bytes .b i{ font-style:normal; font-size:calc(8px * var(--fscale)); color:#3f4c5e; }
+.dbg-bytes .b.v{ background:rgba(47,125,246,.14); border-color:rgba(47,125,246,.45); color:#9ec5ff; }
+.dbg-bytes .b.hs{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.4); color:#86efac; }
+.dbg-bytes .b.hs.v{ background:rgba(234,179,8,.16); border-color:rgba(234,179,8,.5); color:#fde68a; }
+
+/* ═══════════ 底部导航 ═══════════ */
+.tabbar{
+  flex:0 0 auto;
+  height:calc(var(--tabbar-h) + var(--sys-b, var(--safe-b)));
+  padding-bottom:var(--sys-b, var(--safe-b));
+  /* 底栏背景铺到物理边缘，标签本身靠 space 分布；挖孔/刘海处用 max() 让开 */
+  padding-left:max(0px, var(--sys-l, var(--safe-l)));
+  padding-right:max(0px, var(--sys-r, var(--safe-r)));
+  display:flex; align-items:stretch;
+  background:rgba(10,13,20,.97);
+  border-top:1px solid var(--line-soft);
+  position:relative; z-index:20;
+}
+.tab{
+  flex:1; appearance:none; border:0; background:transparent;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  color:var(--tx-3); cursor:pointer; padding:0;
+  transition:color .18s;
+}
+.tab svg{
+  width:21px; height:21px; fill:none; stroke:currentColor;
+  stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;
+}
+.tab span{ font-size:calc(10px * var(--fscale)); font-weight:600; letter-spacing:.03em; }
+.tab.is-active{ color:var(--accent); }
+.tab.is-active svg{ filter:drop-shadow(0 0 8px rgba(47,125,246,.55)); }
+
+/* 输入框聚焦（键盘弹出）时隐藏底栏：输入框才能贴到输入法框上缘 */
+#app.kb .tabbar{ display:none; }
+
+/* 沉浸（状态栏已隐藏）：顶栏几乎贴到屏幕物理上缘，但留 10px 安全边距 ——
+   手机屏幕四角是圆弧，完全贴 0 时 LOGO/连接胶囊会被圆角截掉一块（用户实测）。
+   10px 比状态栏高度（24-40px）小得多，视觉上仍是"贴边"效果 */
+html.imm .topbar{ padding-top:10px; min-height:calc(var(--topbar-h) + 10px); }
+
+/* ── A 屏黑主题（暗色 + 设置开启）：OLED 纯黑，不发光像素更省电 ── */
+html.amoled{
+  --bg:#000000; --bg-2:#000000;
+  --panel:#0a0a0c; --panel-2:#0e0e11; --panel-3:#17171b;
+  --line:#222226; --line-soft:#1a1a1e;
+  --tip-bg:rgba(0,0,0,.5);
+  --stat-bg:rgba(0,0,0,.5); --stat-hd:rgba(0,0,0,.8); --stat-line:rgba(160,185,215,.28);
+  --stat-tx:#ffffff; --stat-tx-dim:#b9c8dd;
+}
+html.amoled #app{
+  background:
+    radial-gradient(1000px 420px at 50% -180px, rgba(47,125,246,.10), transparent 70%),
+    #000;
+}
+html.amoled .topbar{ background:rgba(0,0,0,.82); }
+html.amoled .tabbar{ background:rgba(0,0,0,.9); }
+html.amoled .chart-wrap{ background:#000; }
+html.amoled .toast{ background:rgba(10,10,12,.97); }
+
+/* 主按钮播放态 */
+#btnRun.running{ background:linear-gradient(180deg,#ef4444,#b91c1c); box-shadow:0 6px 18px rgba(239,68,68,.3); }
+
+/* Toast */
+.toast{
+  position:fixed; left:50%;
+  bottom:calc(var(--tabbar-h) + var(--sys-b, var(--safe-b)) + 18px);
+  transform:translateX(-50%) translateY(14px);
+  background:rgba(20,27,38,.97); border:1px solid var(--line);
+  color:var(--tx); border-radius:11px; padding:10px 15px;
+  font-size:calc(12.5px * var(--fscale)); box-shadow:0 12px 34px rgba(0,0,0,.6);
+  opacity:0; pointer-events:none; transition:all .24s; z-index:99;
+  max-width:86vw; text-align:center;
+}
+.toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* 宽屏竖屏（平板）：主数据字号收一档、辅助数据一行放完 */
+@media (min-width:560px){
+  .hero-val{ font-size:clamp(26px,5.2vw,38px); }
+  .aux-stack{ grid-template-columns:repeat(8,1fr); }
+}
+
+/* ═══════════ 亮色主题（html[data-theme="light"]，跟随系统由 JS 切换）═══════════ */
+html[data-theme="light"]{
+  --bg:        #eef1f6;
+  --bg-2:      #f6f8fb;
+  --panel:     #ffffff;
+  --panel-2:   #f2f5f9;
+  --panel-3:   #e4eaf2;
+  --line:      #d5dde8;
+  --line-soft: #e2e8f0;
+  /* 统计浮层：标题栏 80% / 信息行 50%，文字近黑保证对比度 */
+  --stat-bg:   rgba(255,255,255,.5);
+  --stat-hd:   rgba(255,255,255,.8);
+  --stat-line: rgba(90,120,160,.28);
+  --stat-tx:   #0b1220;
+  --stat-tx-dim: #46586f;
+  --tx:        #1a2230;
+  --tx-2:      #4a586c;
+  --tx-3:      #8494a8;
+  --tip-bg:    rgba(255,255,255,.55);   /* 浅色画布 → 浮层也用浅色半透明，字才看得见 */
+  --tip-shadow:transparent;             /* 浅底深字不需要描边，加了反而发灰 */
+}
+html[data-theme="light"] #app{
+  background:
+    radial-gradient(1000px 420px at 50% -180px, rgba(47,125,246,.10), transparent 70%),
+    var(--bg);
+}
+html[data-theme="light"] .topbar{ background:rgba(246,248,251,.82); }
+html[data-theme="light"] .tabbar{ background:rgba(246,248,251,.92); }
+html[data-theme="light"] .chart-wrap{ background:linear-gradient(180deg,#fbfcfe,#f2f5fa); }
+html[data-theme="light"] .hero-val{ text-shadow:none; }
+html[data-theme="light"] .toast{
+  background:rgba(255,255,255,.97);
+  box-shadow:0 12px 34px rgba(30,40,60,.25);
+}
+html[data-theme="light"] .conn-pill{ background:var(--panel-2); }
+
+/* ═══════════════════════════════════════════════════════
+   实时页布局
+   ───────────────────────────────────────────────────────
+   窄屏 / 竖屏：单列纵排
+       主数据(电压·电流·功率 + 开始/清零) → 辅助数据 → 曲线 → 采样参数
+   宽屏 / 横屏：三列网格
+       [主数据列] [辅助数据列] [曲线]  + 通栏参数条压底
+
+   触发条件 = 横屏（宽高比）**或** 视口宽 ≥900px ——
+   竖屏大平板（如 vivo Pad5 Pro 竖着拿，1032×1548）也算「够宽」，
+   不该被塞进手机那套纵排。三列宽度全部用 clamp(vw) 跟随分辨率缩放，
+   1080P(800px) / 1.5K(904px) / 2K(914px) / Pad(1548px) 都成立。
+   ═══════════════════════════════════════════════════════ */
+.live-data{ display:flex; flex-direction:column; gap:8px; min-height:0; }
+.live-chart-card{ display:flex; flex-direction:column; min-height:0; }
+/* .live-bottom 只是「主操作 + 参数条」的横屏容器；竖屏下 transparent（display:contents），
+   两个子元素直接参与 #view-live 的纵向排布，按钮才能排在曲线后面而不是被参数条顶到最底 */
+.live-bottom{ display:contents; }
+
+/* 竖屏顺序：数据 → 辅助 → 曲线(动态高度) → 采样参数 → 按钮(紧贴底栏) */
+#view-live > .live-data{ order:1; }
+#view-live > .aux-stack{ order:2; }
+#view-live > .live-chart-card{ order:3; }
+#view-live > .live-bottom > .action-bar{ order:4; }
+#view-live > .live-bottom > .live-param-card{ order:5; }
+
+@media (orientation: landscape){
+  /* 横屏 / 大屏：顶栏和底栏都瘦一圈 —— 手机上横屏时它们太占纵向空间
+     （Beta12：32/36 → 28/32，用户要求顶底栏再压一点） */
+  :root{
+    --topbar-h:28px; --tabbar-h:32px;
+    /* 三列宽度提到变量里：视图网格和底部带共用同一套，
+       底部带才能「按钮正好占满主数据列、参数正好从辅助列起头」。
+       主数据列比旧版（150/19vw/260）宽一档：横屏数值要吃满空间（用户 2026-10-10）。 */
+    --col-data: clamp(168px, 22.5vw, 300px);
+    --col-aux:  clamp(100px, 11.5vw, 168px);
+  }
+
+  #app{ max-width:none; }
+  /* 横屏：顶栏回到**单行** —— LOGO 最左、已连接最右，中间信息均布
+     （覆盖基础档的两行 grid 布局）。顺序横竖屏统一：版本号·型号·固件·SN（用户 2026-10-10） */
+  .topbar{
+    display:flex; align-items:center;
+    padding-bottom:2px; gap:6px;
+  }
+  /* 横屏空间够：四项信息在 LOGO 与连接胶囊之间均布 */
+  .tb-info{
+    display:flex; flex-direction:row; align-items:center; gap:7px;
+    justify-content:space-evenly;
+    flex:1 1 auto; min-width:0;
+  }
+  .tb-ver{ order:1; }
+  .ti-model{ order:2; }
+  .ti-fw{ order:3; }
+  .ti-sn{ order:4; }
+  .ti{ padding:2px 6px; }
+  .ti b{ max-width:170px; }
+  .brand-rk{ font-size:calc(13px * var(--fscale)); padding:3px 6px; }
+  .brand-en{ font-size:calc(15px * var(--fscale)); }
+  .conn-pill{ padding:3px 8px; }
+
+  /* 实时曲线标题栏压缩：横屏纵向紧张，"实时曲线"4 字 + V/A/W 太占地方 */
+  .live-chart-card .card-hd{ font-size:calc(11px * var(--fscale)); margin-bottom:5px; }
+  .live-chart-card .card-hd .seg-tabs.mini .seg{ padding:2px 7px; font-size:calc(10px * var(--fscale)); border-radius:6px; }
+  .live-chart-card .card-hd .icon-btn{ font-size:calc(10.5px * var(--fscale)); padding:2px 6px; }
+
+  /* 底部导航横排：图标和文字并排，高度砍掉近一半 */
+  .tab{ flex-direction:row; gap:5px; }
+  .tab svg{ width:15px; height:15px; }
+  .tab span{ font-size:calc(10.5px * var(--fscale)); }
+
+  .views{
+    padding-top:7px; padding-bottom:8px;
+    padding-left:max(9px, var(--sys-l, var(--safe-l)));
+    padding-right:max(9px, var(--sys-r, var(--safe-r)));
+  }
+
+  /* ── 实时页：左数据 / 中辅助 / 右曲线 / 底参数 ── */
+  #view-live.is-active{
+    display:grid;
+    grid-template-columns:
+      var(--col-data)               /* 主数据列 */
+      var(--col-aux)                /* 辅助数据列 */
+      minmax(0, 1fr);               /* 曲线 */
+    grid-template-rows:minmax(0, 1fr) auto;
+    grid-template-areas:
+      "data   aux   chart"
+      "bottom bottom bottom";
+    gap:9px;
+    height:100%;
+    min-height:0;
+  }
+
+  /* 底部带：和上面共用同一套列宽 ——
+     ① 「停止记录 / 清零」正好占满主数据列：两键等宽，左键左边界 = 数据卡左边，
+        右键右边界 = 数据卡右边；
+     ② 「采样与记录」从辅助数据列左边界起头（与 CC1/CC2/容量/能量 那组左对齐），
+        一直延伸到屏幕右边。 */
+  .live-bottom{
+    grid-area:bottom;
+    display:grid;
+    grid-template-columns: var(--col-data) var(--col-aux) minmax(0, 1fr);
+    gap:9px;
+    align-items:stretch;
+    min-width:0;
+  }
+  .live-bottom > .action-bar{
+    grid-column:1;
+    display:grid; grid-template-columns:1fr 1fr; gap:6px;
+  }
+  /* 主数据列只有 150–260px，两个按钮各半格（≈70px）。
+     ⚠ 这里**刻意允许折行**：「停止记录」4 个字硬撑一行会顶出按钮，
+     在 70px 里也挤得不好看。中文可任意断字，靠 line-height 保证两行也放得下。
+     （全局 .btn 的 white-space:nowrap 是防系统字体放大把按钮拆行，这里按用户要求放开） */
+  .live-bottom > .action-bar .btn.big{
+    width:100%; min-width:0; flex:none;
+    padding:8px 6px; font-size:calc(14px * var(--fscale)); border-radius:12px; gap:6px;
+    white-space:normal; line-height:1.18; min-height:56px;
+    align-items:center;
+  }
+  .live-bottom > .action-bar .btn .ri{
+    border-left-width:12px; border-top-width:8px; border-bottom-width:8px;
+  }
+  .live-bottom > .action-bar .btn .ri.stop{ width:13px; height:13px; border-radius:3px; }
+  .live-bottom > .live-param-card{ grid-column:2 / 4; min-width:0; }
+
+  .live-data{ grid-area:data; }
+  /* 三张主卡平分左列高度；给 min-height 兜底，宁可让列内部滚动也不把读数压扁 */
+  .hero-stack{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+.hero-stack .hero-card{ flex:1 1 auto; min-height:0; }   /* 三卡均分拉满，MAX/AVG 行贴卡底=贴 stack 底 */
+  /* 横屏主卡（用户 2026-10-10 定稿）：
+     ① 字母代号（VBUS/IBUS/PWR）贴着卡片上边缘；
+     ② 实时值独占中间一行、尽可能大（醒目），在剩余空间里上下居中；
+     ③ MAX / AVG 合并成一行压底（3 位小数、省略单位 —— 144px 列宽放不下两段 5 位值）；
+     ④ 单位固定在卡片右缘、底部与数值底部对齐（baseline 对齐，不是垂直居中）。
+     卡片 grid：auto(代号) + 1fr(数值) + auto(MAX/AVG行)。
+     特大平板（高≥700px）MAX/AVG 拆两行 → 见下方媒体查询。 */
+  .hero-card{
+    flex:1 1 auto; min-height:96px;   /* 三行最小高：窄数据列下行高被压时内容不再互叠（用户 2026-10-11：仿曲线卡三行堆叠） */
+    padding:2px 10px 3px;
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    grid-template-rows:auto minmax(0,1fr) auto;
+    grid-template-areas:"label" "val" "sub";
+    row-gap:2px; align-items:stretch;
+  }
+  .hero-label{ grid-area:label; font-size:calc(10.5px * var(--fscale)); }
+  .hero-val{
+    grid-area:val; min-height:0;
+    display:grid; grid-template-columns:minmax(0,1fr) auto;
+    align-items:baseline; align-content:center;
+    column-gap:4px;
+    font-size:clamp(19px, 2.9vw, 38px); line-height:1;
+  }
+  .hero-val i{ font-size:calc(12px * var(--fscale)); }
+  /* 横屏 MAX/AVG：不带单位（用户 2026-10-11：7 位有效数字后行内空间不足、单位被裁） */
+  .hero-sub .rs u{ display:none; }
+  .hero-sub .rs b{ width:8ch; min-width:8ch; }   /* 7 位有效数字恒 8 字符（用户 2026-10-11） */
+  .hero-sub{
+    grid-area:sub;
+    flex-direction:row; align-items:center; justify-content:space-between;
+    gap:4px; font-size:calc(10px * var(--fscale)); line-height:1; text-align:left; min-height:0;
+    /* Beta19：窄数据列上定宽列（标签3.5ch+数字8ch+单位2ch）×2 段会溢出，
+       段尾 V/A 被挤出裁掉（K20 横屏实测）→ 横屏 MAX/AVG 行不带单位
+       （与曲线 tab 统计卡一致）；主值单位保留。 */
+    overflow:hidden;
+  }
+
+  /* 辅助数据列：单列 8 行，按可用高度均分 */
+  .aux-stack{
+    grid-area:aux;
+    grid-template-columns:1fr;
+    grid-auto-rows:minmax(19px, 1fr);
+    gap:4px; min-height:0; overflow-y:auto; overscroll-behavior:contain;
+  }
+  .aux{
+    display:flex; flex-direction:row; align-items:center; justify-content:space-between;
+    gap:6px; padding:1px 8px;
+  }
+  .aux .ak{ font-size:calc(9.5px * var(--fscale)); text-align:left; }
+  .aux .av{ font-size:calc(11.5px * var(--fscale)); }
+  .aux i{ padding-bottom:0; }
+
+  /* 曲线：撑满右列 */
+  .live-chart-card{ grid-area:chart; }
+  .live-chart-card .chart-wrap{ flex:1 1 auto; height:auto; min-height:120px; }
+  .live-legend{ margin-top:5px; }
+
+  /* 参数条：标题不占位、分段控件与步进器全部收档。
+     ★ 改成**单一 flex 流**：r1 用 display:contents 摊平，它的项与 r2（整组）
+       参与同一个 wrap。效果：
+       ① 「采样速率 + 采样点数 + 缓存」是 nowrap 的整体 —— 任何宽度都不拆开；
+       ② 「使用系统时间」放不下时会自然换到第二行，正好和采样速率/采样点数同行
+          （用户要求：放不下就错行到第二行，但不要拆采样速率和采样点数）。 */
+  .live-param-card{
+    display:flex; flex-wrap:wrap; align-content:flex-start;
+    align-items:center; gap:5px 10px;
+    padding:6px 11px;
+  }
+  .live-param-card .card-hd{ display:none; }
+  .live-param-card .param-row.r1{ display:contents; }
+  .live-param-card .param-row.r2{
+    display:flex; flex-wrap:nowrap; align-items:center;
+    gap:4px 8px; margin-top:0;
+  }
+  .live-param-card .field{ gap:4px; }
+  .live-param-card .field > span:first-child{ font-size:calc(9.5px * var(--fscale)); }
+  .live-param-card .seg-tabs.mini{ padding:2px; gap:2px; }
+  .live-param-card .seg-tabs.mini .seg{ padding:3px 4px; font-size:calc(10px * var(--fscale)); }
+  .live-param-card .num-edit button{ width:19px; height:22px; font-size:calc(12px * var(--fscale)); }
+  /* 关键：input 默认固有宽度 ≈180px，不扼住它，参数条永远排不下 → 会多吃 30px 高度 */
+  .live-param-card .num-edit input{ flex:0 0 30px; width:30px; padding:3px 0; font-size:calc(11.5px * var(--fscale)); }
+  .live-param-card .num-edit i{ padding-right:5px; font-size:calc(9px * var(--fscale)); }
+  .live-param-card .sw{ font-size:calc(9.5px * var(--fscale)); gap:5px; }
+  .live-param-card .sw i{ width:26px; height:15px; }
+  .live-param-card .sw i::after{ width:11px; height:11px; }
+  .live-param-card .sw input:checked + i::after{ transform:translateX(11px); }
+  .live-param-card .pstat{ font-size:calc(9.5px * var(--fscale)); gap:4px; }
+  .live-param-card .pstat b{ font-size:calc(11px * var(--fscale)); }
+
+  /* ── 设置页：两列，少滚动 ── */
+  #view-set.is-active{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0,1fr));
+    gap:10px;
+    align-content:start;
+    align-items:start;
+  }
+}
+
+/* 窄横屏（≤899px，1080P 手机横屏就是 800px）：
+   按钮不再上下叠放 —— 现在两键等宽占满主数据列（与数据卡左右对齐），
+   参数区从辅助列左边界起头、拿到 aux+chart 两列宽度。
+   参数条第一行的 5 项（触发依据 / 触发小于 / 自动停止 / 持续时间 / 系统时间）
+   放不开时本来就会换行到第二行；第二行（采样速率 / 采样点数 / 缓存）保持整行不拆。 */
+@media (orientation: landscape) and (max-width: 899px){
+  .param-row{ gap:4px 7px; }   /* 768px(720P 横屏) 就差这几像素 */
+}
+
+/* ── 手机横屏（矮屏，360–430px 高）────────────────────────────
+   这一档是纵向空间最紧张的场景，顶栏/底栏压到最扁（26 / 30px），
+   腾出来的高度全给数据卡和曲线。平板横屏（≥520px 高）不用这么抠，保持 32/36。
+   ⚠ 这条必须写在通用横屏规则之后，否则 --topbar-h 会被覆盖。 */
+@media (orientation: landscape) and (max-height:520px){
+  :root{ --topbar-h:24px; --tabbar-h:28px; }
+
+  /* 顶栏里的每一块都跟着收，保证 26px 装得下（横屏已合并成一行） */
+  .topbar{ gap:5px; padding-bottom:1px; }
+  .brand-rk{ padding:2px 5px; font-size:calc(11px * var(--fscale)); }
+  .brand-en{ font-size:calc(12px * var(--fscale)); }
+  .tb-ver{ font-size:calc(10px * var(--fscale)); padding:1px 6px; }
+  .ti{ padding:1px 6px; }
+  .ti i{ font-size:calc(8.5px * var(--fscale)); }
+  .ti b{ font-size:calc(10px * var(--fscale)); }
+  .conn-pill{ padding:2px 7px; font-size:calc(10.5px * var(--fscale)); }
+
+  /* 底栏：图标+文字都再小一号，30px 里排得下 */
+  .tab svg{ width:14px; height:14px; }
+  .tab span{ font-size:calc(10px * var(--fscale)); }
+
+  /* ⚠ 不能用 padding 简写覆盖 .views：左右必须保留 inset 让位
+     （三大金刚导航条/挖孔在左或右时数据面板靠 --sys-l/--sys-r 避让）。
+     2026-10-10 发现：此前 padding:6px 8px 8px 把左右让位 padding 干掉了，
+     导致真机上导航条在左时仍会挡住数据。 */
+  .views{
+    padding:6px 8px 8px;
+    padding-left:max(8px, var(--sys-l, var(--safe-l)));
+    padding-right:max(8px, var(--sys-r, var(--safe-r)));
+  }
+  /* 矮横屏：MAX/AVG 行保留（用户要求两行布局），字号再收一档 */
+  .hero-card{ padding:2px 10px 3px; min-height:34px; }
+  .hero-sub{ font-size:calc(9.5px * var(--fscale)); gap:6px; }
+  .aux-stack{ grid-auto-rows:minmax(18px, 1fr); gap:3px; }
+  .live-chart-card{ padding:9px; }
+  /* 矮横屏：标题栏压到最扁（这一档纵向空间最贵） */
+  .live-chart-card .card-hd{ font-size:calc(10.5px * var(--fscale)); margin-bottom:3px; }
+  .live-chart-card .card-hd .seg-tabs.mini .seg{ padding:1px 6px; font-size:calc(9.5px * var(--fscale)); }
+  .live-chart-card .card-hd .icon-btn{ font-size:calc(10px * var(--fscale)); padding:1px 5px; }
+  .live-legend{ display:none; }   /* 图例值在辅助列里已能读到，矮屏优先保曲线高度 */
+
+  /* 矮横屏曲线页（Beta19 侧栏布局）：竖排标签 / 统计卡 / chips 再收一档，
+     保证 360px 高的屏里 曲线 + 三张统计卡都完整可见、无遮挡 */
+  #view-chart #chartMode .seg{ padding:7px 6px; font-size:calc(11px * var(--fscale)); }
+  #view-chart .chips .c{ padding:3px 7px; font-size:calc(9.5px * var(--fscale)); }
+  #view-chart .st-v{ font-size:calc(14px * var(--fscale)); justify-content:flex-start; gap:5px; }
+  #view-chart .st-v em{ font-size:calc(11px * var(--fscale)); }
+}
+
+/* ── 平板：主卡 MAX / AVG 拆成两行（用户 2026-10-10 定稿：手机两行、平板三行）──
+   平板判定 = 横屏且高≥700px，或宽≥900px（竖屏大平板）。
+   行比 1.6fr : 1fr : 1fr → 实时值占 44%（仍是最大的那一行），MAX/AVG 各 ≈28%。 */
+/* ── 竖屏大平板：主卡三行布局只保留给竖屏平板（平板横屏改单行紧凑，见下）──
+   行比 1.6fr : 1fr : 1fr → 实时值占 44%，MAX/AVG 各 ≈28%。 */
+/* ═══ 平板/大平板**竖屏**实时页：布局照渲染图定稿 ═══
+   （layout_v_live_大平板竖.png，用户 2026-10-11：照渲染图改）
+   纵排 = 数据卡三张全宽堆叠（字号同手机竖屏 ×2 档）→ 辅助数据**行式列表**（横屏式行）→
+   曲线压低在底部 → 参数/按钮。覆盖 907「宽≥900 三列横排」——竖屏大平板不再用那套。 */
+@media (min-width: 900px) and (max-aspect-ratio: 1/1) and (min-height: 700px){
+  /* 竖屏平板统计表：代号列加宽（st-k 16px 后需 ≥6.5ch 才不挤） */
+  #view-chart .st-row{ grid-template-columns:6.5ch repeat(3, minmax(0, 1fr)); }
+  :root{ --topbar-h:78px; --tabbar-h:87px; }   /* 平板竖屏顶底栏 = 手机 1.5 倍（用户 2026-10-11） */
+  /* 整页锁定一屏高：曲线/辅助自动压缩，action-bar margin-top:auto 把按钮钉在底栏上沿
+     （用户 2026-10-11：停止记录/清零要贴着底栏，不随内容滚动） */
+  .brand-rk{ font-size:calc(21px * var(--fscale)); padding:6px 10px; border-radius:10px; }
+  .brand-en{ font-size:calc(24px * var(--fscale)); }
+  .tb-ver{ font-size:calc(15px * var(--fscale)); padding:3px 9px; border-radius:9px; }
+  .ti{ padding:3px 9px; border-radius:9px; }
+  .ti i{ font-size:calc(13px * var(--fscale)); }
+  .ti b{ font-size:calc(15px * var(--fscale)); }
+  .conn-pill{ font-size:calc(16px * var(--fscale)); padding:6px 13px; }
+  .conn-pill .dot{ width:10px; height:10px; }
+  .tab svg{ width:31px; height:31px; }
+  .tab span{ font-size:calc(15px * var(--fscale)); }
+  .tab{ gap:5px; }
+  #view-live.is-active{
+    display:flex; flex-direction:column; gap:8px;
+    height:100%; min-height:0; overflow-y:auto;
+  }
+  /* 数据卡：单列三行（label / val 全宽 / sub 一行），字号 = 渲染图水准（~60px） */
+  .hero-val{ font-size:clamp(48px, 16vw, 68px); }
+  .hero-val i{ font-size:calc(22px * var(--fscale)); }
+  .hero-sub{
+    display:flex; flex-direction:row; align-items:baseline; justify-content:space-between; gap:8px;
+    font-size:calc(16px * var(--fscale));   /* 与曲线卡数值同档（用户 2026-10-11） */
+  }
+  /* 辅助数据：**双列网格**（CC1|CC2、D+|D−、温度|手机电量、容量|能量），行高拉高、字体放大 */
+  .aux-stack{ display:grid; grid-template-columns:1fr 1fr; gap:6px; grid-auto-rows:auto; }
+  .aux{
+    display:flex; flex-direction:row; align-items:center; justify-content:space-between;
+    gap:8px; padding:10px 16px; min-height:54px;
+    background:var(--panel); border:1px solid var(--line-soft); border-radius:12px;
+  }
+  .aux .ak{ font-size:clamp(13px, 1.4vw, 18px); text-align:left; }
+  .aux .av{ font-size:clamp(15px, 1.6vw, 21px); }
+  .aux i{ font-size:clamp(12px, 1.4vw, 18px); }
+  /* 曲线压低在底部（22vh 保证一屏塞下，按钮贴底） */
+  #view-live .live-chart{ height:clamp(200px, 22vh, 340px); }
+  /* 曲线页同理：大图压低（flex 禁拉伸，否则被卡片撑回满高），下方统计卡露出 */
+  #view-chart .full-chart{ flex:0 0 auto; height:clamp(240px, 26vh, 420px); }
+  /* 参数/按钮强制穿透排尾（渲染图顺序：数据卡 → 辅助 → 曲线 → 参数）——
+     部分环境 contents 被后续规则盖成 flex 导致 bottom 顶到第一屏（实测），显式钉回 */
+  #view-live .live-bottom{ display:contents; }
+  #view-live .live-bottom > .action-bar{ order:4; margin-top:auto; }
+  #view-live .live-bottom > .live-param-card{ order:5; }
+  /* 停止记录 / 清零：高度和字体图标 ×3（用户 2026-10-11） */
+  #view-live .live-bottom > .action-bar{
+    display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:10px;
+  }
+  #view-live .live-bottom > .action-bar .btn.big{
+    gap:12px; padding:12px 14px; font-size:calc(23px * var(--fscale)); border-radius:18px;
+    white-space:nowrap; line-height:1; min-height:80px;
+  }
+  #view-live .live-bottom > .action-bar .btn .ri{
+    border-left-width:17px; border-top-width:11px; border-bottom-width:11px;
+  }
+  #view-live .live-bottom > .action-bar .btn .ri.stop{
+    width:20px; height:20px; border-radius:5px;
+  }
+  #view-live .live-bottom > .live-param-card{ min-width:0; }
+}
+/* ── 平板横屏：主卡**单行紧凑**（用户 2026-10-10：3 行太高，下滑看不到电流电压）──
+   一行 = 代号 | 数值+单位 | MAX/AVG，卡片高度大幅压缩 → 三卡全可见、纵向空间给曲线。
+   数据列加宽到 24vw（上限 380）；MAX/AVG 超宽时先省略，保证数值完整。 */
+@media (orientation: landscape) and (min-height: 700px){
+  :root{
+    --col-data: clamp(200px, 24vw, 380px);
+    --topbar-h:66px; --tabbar-h:72px;   /* 顶底栏 ×1.5（用户 2026-10-11，方便鼠标点击） */
+  }
+  /* 顶底栏字体 ×1.5 */
+  .brand-rk{ font-size:calc(21px * var(--fscale)); padding:6px 10px; border-radius:10px; }
+  .brand-en{ font-size:calc(24px * var(--fscale)); }
+  .tb-ver{ font-size:calc(15px * var(--fscale)); padding:3px 9px; border-radius:9px; }
+  .ti{ padding:3px 9px; border-radius:9px; }
+  .ti i{ font-size:calc(13px * var(--fscale)); }
+  .ti b{ font-size:calc(15px * var(--fscale)); }
+  .conn-pill{ font-size:calc(16px * var(--fscale)); padding:6px 13px; }
+  .conn-pill .dot{ width:10px; height:10px; }
+  .tab svg{ width:31px; height:31px; }
+  .tab span{ font-size:calc(15px * var(--fscale)); }
+  .tab{ gap:5px; }
+  /* hero 三行堆叠继承基础档（v41）——此前「单行紧凑」在 252-371px 数据列里
+     主值(8ch min-width)与 MAX/AVG 互叠（MuMu Pad5 Pro 比例实测，用户 2026-10-11） */
+  .hero-label{ white-space:nowrap; }
+  /* 曲线页：大图拉伸钉死（此前下方大片留白，用户 2026-10-11） */
+  #view-chart .full-chart{ flex:1 1 auto; height:auto; min-height:140px; }
+}
+/* 曲线页竖屏（手机）：曲线高度压到 42vh —— 保证下方功率/电流/电压统计表完整可见
+   （用户 2026-10-10：48vh 还是太高，表格显示不出来） */
+@media (max-aspect-ratio: 1/1) and (max-width: 899px){
+  #app[data-v="chart"] .views{ display:block; }
+  #view-chart .full-chart{ height:42vh; min-height:160px; }
+}
+
+/* ═══════════ Beta 12：固件页提示块 / 更新源 ═══════════ */
+.fw-hint{
+  display:none; margin-top:10px;
+  font-size:calc(11.5px * var(--fscale)); line-height:1.7; color:var(--tx-2);
+  background:var(--panel-2); border:1px solid var(--line-soft);
+  border-radius:9px; padding:9px 11px;
+}
+.fw-hint.show{ display:block; }
+.fw-hint b{ color:var(--tx); }
+.fw-row.fw-src{ gap:10px; }
+.fw-row.fw-src input{ flex:1 1 auto; width:auto; min-width:0; padding:6px 9px; font-size:calc(11.5px * var(--fscale)); }
+/* ── 测量面板 / 统计表（复刻官方 PC 版，2026-10-12）──
+   两个都是**悬浮在曲线图上**的半透明浮层（用户定稿：底 50% 透明度、标题栏 80%、可拖动）。
+   列宽按"别太占空间"收窄：测量窗 3 列（代号 / Δ值 / T1→T2），字号 10.5，内边距 4px。
+   浮层本体 pointer-events:none，只有标题栏吃事件 —— 图上的拖动/捏合/读数不受影响。
+   ⚠ 2026-10-13：默认位置从「左下角」改为「**底部居中**」（用户定稿）——
+     用 left:50% + translateX(-50%)，随容器宽度自适应，切页/旋转不用重算；
+     一旦拖动或双击复位，JS 会把 transform 清掉改回 left/top 像素定位。 */
+.measure-panel{
+  display:none;
+  position:absolute; z-index:3;
+  /* 默认位 = **绘图区**底部居中（不是整个容器）：chart.js 每次绘制把绘图区边界写成
+     --plot-l / --plot-r / --plot-b 三个 CSS 变量，这里据此把自己限制在
+     两根纵轴之间、时间轴之上（用户 2026-10-13："不要超出两边坐标轴和底部坐标轴的范围"）。
+     取不到变量时退回 0 / 22px（= PAD_BASE 的 t/b）。 */
+  left:calc(var(--plot-l, 0px) + (100% - var(--plot-l, 0px) - var(--plot-r, 0px)) / 2);
+  bottom:calc(var(--plot-b, 22px) + 8px);
+  transform:translateX(-50%);
+  /* ⚠ width:max-content 是必需的：绝对定位元素只给 left 时，可用宽度 =
+     容器右缘 − left = **容器的一半**，内容会被挤到换行（实测标题/数值全折行）。
+     让宽度按内容撑开，再用 max-width 兜住不超**绘图区**宽度。 */
+  width:max-content;
+  max-width:calc(100% - var(--plot-l, 0px) - var(--plot-r, 0px));
+  pointer-events:none;
+  /* ⚠ 容器本身**不铺底色**：底色由每一行自己带（标题栏 .mp-hd 80% / 信息行 .mp-row 50%）。
+     以前容器铺 50% + 标题栏再叠 80% → 标题栏实际是 0.8 over 0.5 ≈ **90%**，
+     比要求的 80% 更实（用户 2026-10-13 反馈"整个窗口都像 80"）。 */
+  background:transparent;
+  border:1px solid var(--stat-line);
+  border-radius:9px; overflow:hidden;
+  box-shadow:0 2px 10px rgba(0,0,0,.18);
+}
+.measure-panel.show{ display:block; }
+.measure-panel .mp-hd{ display:flex; align-items:center; gap:6px; padding:4px 8px;
+  background:var(--stat-hd); color:var(--stat-tx-dim);
+  font-size:calc(9.5px * var(--fscale)); font-weight:600; letter-spacing:.2px;
+  pointer-events:auto; cursor:move; touch-action:none; user-select:none; }
+.measure-panel .mp-hd em{ font-style:normal; font-weight:600; color:var(--stat-tx-dim); font-size:calc(9.5px * var(--fscale)); }
+.measure-panel .mp-hd .mp-hint{ margin-left:auto; font-size:calc(9px * var(--fscale)); color:var(--stat-tx-dim); font-weight:400; opacity:.8; }
+.measure-panel .mp-row{ display:grid; grid-template-columns:34px 1fr auto; gap:4px; align-items:baseline;
+  padding:3.5px 8px; border-top:1px solid var(--stat-line); font-size:calc(10.5px * var(--fscale));
+  color:var(--stat-tx); font-weight:600; text-shadow:0 1px 2px rgba(0,0,0,.35);
+  background:var(--stat-bg); }   /* 信息行 = 50%（容器不再叠一层） */
+.measure-panel .mp-k{ color:var(--ac); font-weight:700; font-size:calc(10px * var(--fscale)); }
+.measure-panel .mp-v{ font-family:var(--mono); }
+.measure-panel .mp-v i{ font-style:normal; color:var(--stat-tx-dim); font-size:calc(9px * var(--fscale)); margin-left:2px; }
+.measure-panel .mp-ab{ font-family:var(--mono); font-size:calc(9.5px * var(--fscale)); color:var(--stat-tx-dim); }
+
+/* 统计表（复刻官方 PC 版「统计」）：**悬浮在曲线图上**、50% 透明度（用户 2026-10-12 定稿：
+   官方就是浮在图表左下角的半透明面板，不该占曲线下方的版面）。
+   pointer-events:none —— 浮层绝不挡图上的拖动/捏合/读数。
+   底色/边框都半透明，浅色主题下也看得清（走 --stat-bg 主题变量）。 */
+.stats-table{
+  display:none;
+  position:absolute; z-index:3;
+  /* 同测量窗：默认位 = 绘图区底部居中，宽度不超绘图区 */
+  left:calc(var(--plot-l, 0px) + (100% - var(--plot-l, 0px) - var(--plot-r, 0px)) / 2);
+  bottom:calc(var(--plot-b, 22px) + 8px);
+  transform:translateX(-50%);
+  width:max-content;                       /* 避免 left 计算式下可用宽度被砍半导致折行 */
+  max-width:calc(100% - var(--plot-l, 0px) - var(--plot-r, 0px));
+  pointer-events:none;
+  background:transparent;                  /* 底色由每行自己带，见下（标题栏 80% / 信息行 50%） */
+  border:1px solid var(--stat-line);
+  border-radius:9px; overflow:hidden;
+  box-shadow:0 2px 10px rgba(0,0,0,.18);
+}
+.stats-table.show{ display:block; }
+/* 拖拽手柄 = 标题栏（用户 2026-10-12：统计窗口位置可拖）。
+   正文保持 pointer-events:none（浮层不挡图上拖动/捏合/读数），只有标题栏吃事件。 */
+.stats-table .stt-hd{ pointer-events:auto; cursor:move; touch-action:none;
+  -webkit-user-select:none; user-select:none; }
+.stt-row{ display:grid; grid-template-columns:42px 1.15fr 1fr 1fr .85fr; gap:4px;
+  padding:4px 8px; font-size:calc(10.5px * var(--fscale)); font-family:var(--mono); align-items:center;
+  color:var(--stat-tx); font-weight:600;
+  text-shadow:0 1px 2px rgba(0,0,0,.35);
+  background:var(--stat-bg); }               /* 信息行 = 50% */
+.stt-row.stt-hd{ background:var(--stat-hd); font-family:inherit; font-size:calc(9.5px * var(--fscale));
+  color:var(--stat-tx-dim); font-weight:600; text-shadow:none; }   /* 标题栏 = 80% */
+.stt-row .stt-k{ font-family:inherit; font-weight:700; }
+.stt-row.all .stt-k{ color:#22d38a; }
+.stt-row.win .stt-k{ color:#e879f9; }
+.stt-row + .stt-row{ border-top:1px solid var(--stat-line); }
+
+/* ── 赞赏码（设置页底部，用户 2026-10-13）──
+   两张图各自带底色（暗版 #1f1f1f / 亮版 #fff）+ 底部金色横幅，所以**按主题切换整张图**，
+   不做滤镜反色（会把金色横幅一起毁掉）。 */
+.reward-card .reward-img{ display:block; width:100%; max-width:300px; margin:0 auto;
+  border-radius:10px; border:1px solid var(--line-soft); }
+.reward-card .reward-light{ display:none; }
+html[data-theme="light"] .reward-card .reward-light{ display:block; }
+html[data-theme="light"] .reward-card .reward-dark{ display:none; }
+.reward-card .hint{ margin:9px 0 0; }
+
+/* 开关行里的次要说明（如「记录中保持屏幕常亮」的防丢数据提示） */
+.sw-row em.sub{ font-style:normal; font-size:calc(10px * var(--fscale)); color:var(--tx-3); margin-left:6px; }
+
+/* 「最新版本」带跳转地址时：主色 + 下划线，示意可点（点击走 openExternal 到下载页） */
+.fw-row b.jump, .fw-row a.jump{ color:var(--accent,#2f7df6); font:600 calc(12.5px * var(--fscale))/1 var(--mono); text-decoration:underline; text-underline-offset:2px; cursor:pointer; }
+
+/* 曲线页：筛选 chips 与 导出按钮 同一行流式排布（空间不够自动换行） */
+.filter-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; }
+.filter-row .chips{ flex:1 1 auto; min-width:0; }
+.filter-row .action-bar{ flex:0 0 auto; gap:6px; }
+.filter-row .action-bar .btn{ padding:7px 11px; font-size:calc(12px * var(--fscale)); }
+
+/* ═══════════ Beta 12：曲线 / 协议 / 固件 页横屏适配 ═══════════
+   （实时页 Beta 9-11 已适配；这四个页面在横屏 / 宽屏下：压扁 chrome、吃满高度） */
+@media (orientation: landscape){
+
+  /* ── 曲线页（Beta21 横屏重排，按渲染图 layout_curve_手机.png 定稿）──
+     第 1 行 = 「曲线/测量/统计」横排标签（左）+ 通道筛选 chips（右），两容器同行等高居中；
+     第 2 行 = 左栏统计卡（hero 风格：代号→当前大值→MAX/AVG 行）+ 右栏曲线卡吃满。
+     顶栏保留（Beta13：隐藏后状态栏会挡住 曲线/测量/统计 没法点）。 */
+  #app[data-v="chart"] .views{ display:block; }
+  #app[data-v="chart"] #view-chart.is-active{
+    display:grid;
+    grid-template-columns:clamp(168px, 22vw, 300px) minmax(0, 1fr);
+    grid-template-rows:auto minmax(0, 1fr);
+    grid-template-areas:
+      "mode  chips"
+      "stats card";
+    gap:8px;
+    height:100%; min-height:0;
+  }
+  /* 模式标签横排：与右侧筛选行同一行、容器等高（grid 行高 = 较高者，双 stretch）、内容垂直居中 */
+  #view-chart #chartMode{
+    grid-area:mode; align-self:stretch; justify-content:center;
+    padding:3px; gap:3px;
+  }
+  #view-chart #chartMode .seg{ padding:7px 10px; font-size:calc(11px * var(--fscale)); }
+  #view-chart .filter-row{ grid-area:chips; align-self:stretch; align-items:center; gap:6px; flex-wrap:nowrap; }
+  #view-chart .chips{ flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; }
+  #view-chart .chips .c{ padding:4px 9px; font-size:calc(10px * var(--fscale)); flex:0 0 auto; }
+  #view-chart .card.grow{ grid-area:card; padding:8px; min-height:0; }
+  #view-chart .card.grow .card-hd{ margin-bottom:6px; }
+  #view-chart .card.grow .card-hd .icon-btn{ padding:3px 8px; font-size:calc(10.5px * var(--fscale)); }
+  #view-chart .card.grow .card-hd .btn{ padding:3px 9px; font-size:calc(10.5px * var(--fscale)); border-radius:7px; }
+  /* 曲线吃满卡片剩余高度（覆盖基础档 min-height:240px，矮横屏不被顶爆） */
+  #view-chart .full-chart{ flex:1 1 auto; height:auto; min-height:100px; }
+  #view-chart .axis-foot{ margin-top:4px; }
+
+  /* 统计卡 hero 化（Beta19 第四轮，用户：直接照搬实时页 hero 卡——
+     背景渐变 + 左色条 + 左上角只写英文代号（汉字隐藏）+ 单位跟随数值颜色 +
+     MAX/AVG 一行两段、不带单位）。DOM 仍与竖屏 4 列表共用，位置靠 grid。 */
+  #view-chart .stat-table{
+    grid-area:stats; min-height:0;
+    display:flex; flex-direction:column; gap:7px;
+    justify-content:flex-start;
+    padding:0; background:none; border:none; border-radius:0;
+    overflow-y:auto; overscroll-behavior:contain;
+  }
+  /* ⚠ 必须用 .st-row.st-head：下面的 .st-row 规则同特异性且更靠后，
+     单写 .st-head 的 display:none 会被覆盖（实测表头卡没藏掉） */
+  #view-chart .st-row.st-head{ display:none; }   /* 表头退场，值标签 em 上场 */
+  #view-chart .st-row{
+    /* 主三项（V/I/W）时：flex-grow 让三张卡等高填满左栏（原设计观感）。
+       ⚠ min-height 必须给：万一出现更多行（历史配置/异常数据），不再被压扁成几十像素
+         导致内容与卡片重叠（用户 2026-10-11 反馈），撑不下时父容器 overflow-y:auto 滚动。 */
+    flex:1 1 auto; min-height:70px; max-height:175px;
+    position:relative; overflow:hidden;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    /* 主值行吃富余（卡片被 flex-grow 拉高时，大数字行居中、MAX/AVG 贴卡底）；
+       ⚠ 不能写 minmax(0,1fr) 之外的花样——卡片高度不足时 1fr 会塌，这里靠 min-height 兜底 */
+    grid-template-rows:auto minmax(0,1fr) auto;
+    align-items:center;   /* MAX/AVG 贴卡底 */
+    column-gap:8px; row-gap:2px;
+    padding:8px 11px 6px 14px;
+    background:var(--panel); border:1px solid var(--line-soft); border-radius:12px;
+  }
+  /* 照搬 hero-card::before/::after：对角色渐变 + 左色条（--ac 由 JS 内联注入） */
+  #view-chart .st-row::before{
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(150deg, var(--ac, #2f7df6) 0%, transparent 62%);
+    opacity:.16; pointer-events:none;
+  }
+  #view-chart .st-row::after{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:3px;
+    background:var(--ac, #2f7df6);
+    box-shadow:0 0 16px var(--ac, #2f7df6);
+  }
+  /* 顶部代号：字母（VBUS/IBUS/POWER），与实时页 hero 同款左对齐小字 */
+  #view-chart .st-k{
+    grid-column:1 / -1; grid-row:1;
+    display:flex; align-items:baseline; gap:5px;
+    font-size:calc(10.5px * var(--fscale)); font-weight:700; justify-content:flex-start;
+    position:relative; z-index:1;
+  }
+  /* 当前值 = 实时页 hero-val 横屏**同款字号**（用户 2026-10-11：弄成和实时 TAB 一样——
+     大屏手机横屏下实时 2.9vw 可到 32px+，旧 cap 27px 显小）；单位贴卡片右缘 */
+  #view-chart .st-v.st-main{
+    grid-column:1 / -1; grid-row:2;
+    display:grid; grid-template-columns:minmax(0,1fr) auto;
+    align-items:baseline; align-content:center; column-gap:.25em;
+    min-width:0;
+    font:700 clamp(19px, 2.9vw, 38px)/1 var(--mono);
+    font-variant-numeric:tabular-nums; letter-spacing:-.02em;
+    position:relative; z-index:1;
+  }
+  #view-chart .st-v.st-main span{ grid-column:1; min-width:8ch; overflow:hidden; white-space:nowrap; }
+  #view-chart .st-v.st-main i{ grid-column:2; flex:0 0 auto; font-style:normal; font-size:calc(12px * var(--fscale)); font-weight:600; color:inherit; }
+  /* 底行：MAX 左、AVG 右，一行两段、不带单位；标签与数值贴紧（用户 2026-10-11：
+     space-between 拉太开，数值快贴到 AVG 了 → 改 flex-start + 小 gap） */
+  #view-chart .st-row > div:nth-child(4){ grid-column:1; grid-row:3; }   /* MAX */
+  /* MAX/AVG 列不带单位（用户 2026-10-11：7 位有效数字后空间不足、单位被裁；仅横屏，竖屏表格保留） */
+  #view-chart .st-v:not(.st-main) i{ display:none; }
+  #view-chart .st-row > div:nth-child(3){ grid-column:2; grid-row:3; }   /* AVG */
+  #view-chart .st-v{ font-size:calc(10px * var(--fscale)); justify-content:flex-start; gap:5px; position:relative; z-index:1; }
+  #view-chart .st-v em{
+    /* MAX/AVG 标签与数值/单位同字体（mono 400 10px，用户 2026-10-11：字体要一致） */
+    display:inline; font:400 calc(10px * var(--fscale))/1 var(--mono); color:var(--tx-3); letter-spacing:0;
+  }
+
+  /* ── 协议页（Beta19 第四轮，用户澄清）：工具栏回左栏原位（工具行 → 事件条 →
+     表头+报文表）；右栏解析详情**通顶铺满**（从工具行顶到列表底，不下移）。
+     间距：全 grid 统一 gap:8px。 */
+  #app[data-v="pd"] .views{ display:flex; flex-direction:column; }
+  #app[data-v="pd"] #view-pd.is-active{
+    flex:1 1 auto; min-height:0;
+    display:grid;
+    grid-template-columns:minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-rows:auto auto auto minmax(0, 1fr);
+    grid-template-areas:
+      "tool   detail"
+      "events detail"
+      "head   detail"
+      "list   detail";
+    gap:8px;
+  }
+  #view-pd .pd-toolbar{ grid-area:tool; }
+  /* 横屏列宽：左栏 ~440px，VBI 给足 76px+，「20.050V 3.269A」单行显示（用户 2026-10-11），
+     Msg 反而能完整放下 Source_Capabilities */
+  #view-pd .pd-head, #view-pd .pd-item{
+    grid-template-columns:1.8em 2.4em minmax(0,1fr) 1.4em 4.4em 5em minmax(7.6em,0.55fr);
+  }
+  /* VBUS/IBUS 对齐由容器查询接管（卡宽 ≥372px 居中 / 窄卡右对齐），此处不再按方向分 */
+  #view-pd .pd-head{ grid-area:head; padding-bottom:5px; }
+  #view-pd .pd-events{ grid-area:events; margin:0; }
+  #view-pd .pd-list{
+    grid-area:list; max-height:none; min-height:0;
+    overflow-y:auto; overscroll-behavior:contain;
+  }
+  #view-pd .pd-detail{
+    grid-area:detail; min-height:0; align-self:stretch;
+    overflow-y:auto; overscroll-behavior:contain;
+  }
+  #app[data-v="pd"] .pd-toolbar .btn.sm{ padding:6px 10px; }
+  #app[data-v="pd"] .pd-item{ padding:6px 8px; }
+
+  /* ── 固件页（Beta13 重排）：左列 = 固件更新（拉伸到底）；右列 = 离线数据 + 文件 + U盘模式，
+     右列下边缘与左列「立即升级」下边缘对齐 ── */
+  #view-fw.is-active{
+    display:grid;
+    grid-template-columns:minmax(0, 1.08fr) minmax(0, 1fr);
+    grid-template-rows:auto auto minmax(0, 1fr);
+    grid-template-areas:
+      "fwcard  offline"
+      "fwcard  files"
+      "fwcard  usb";
+    gap:8px;
+  }
+  #view-fw > .card:nth-of-type(1){ grid-area:fwcard; display:flex; flex-direction:column; }
+  #view-fw > .card:nth-of-type(2){ grid-area:offline; }
+  #view-fw > .card:nth-of-type(3){ grid-area:files; }
+  #view-fw > .card:nth-of-type(4){ grid-area:usb; }
+  /* 左列固件卡压扁：行距/按钮收紧，保证「立即升级」完整可见。
+     ⚠ 卡是 grid 拉伸的 flex 容器，子项默认可收缩 —— 高度不够时按钮会互相压叠，
+     全部禁止收缩（用户实测「选择固件/检查更新」和「立即升级」重合就是这个原因） */
+  #view-fw > .card:nth-of-type(1){ flex-shrink:0; }
+  #view-fw > .card:nth-of-type(1) > *{ flex-shrink:0; }
+  #view-fw > .card:nth-of-type(1) .fw-row{ padding:5px 0; }
+  #view-fw > .card:nth-of-type(1) .fw-actions{ margin-top:12px; gap:6px; }
+  #view-fw > .card:nth-of-type(1) .fw-actions .btn{ padding:7px 10px; font-size:calc(12px * var(--fscale)); }
+
+  #view-fw > .card:nth-of-type(1) .btn.primary.wide{ padding:9px 14px; font-size:calc(13px * var(--fscale)); margin-top:12px; }
+  #view-fw > .card:nth-of-type(1) .fw-src input{ padding:4px 8px; font-size:calc(11px * var(--fscale)); }
+  #view-fw > .card:nth-of-type(1) .fw-hint{ margin-top:7px; padding:7px 9px; font-size:calc(10.5px * var(--fscale)); line-height:1.6; }
+  #view-fw > .card:nth-of-type(1) .progress{ margin-top:7px; height:22px; }
+  #view-fw > .card:nth-of-type(4) .hint{ margin-bottom:0; }
+
+  /* ── 设置页（Beta13 重排）：两列瀑布流（column 布局自动填密，消灭大空隙）── */
+  #view-set.is-active{ display:block; column-count:2; column-gap:10px; }
+  #view-set .card{ break-inside:avoid; margin:0 0 10px; }
+
+  /* ── 协议页空态 ── */
+  .pd-empty{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height:120px; height:100%; padding:14px; text-align:center;
+    font-size:calc(11.5px * var(--fscale)); line-height:1.8; color:var(--tx-3);
+  }
+}
+
+/* ── 以下规则原本误写在 @media(orientation:landscape) 里，导致竖屏手机上完全不生效 —— 2026-10-12 移出来 ── */
+/* ── 「固件更新」区做成表格（用户 2026-10-12 要求："弄成表格，简洁直观"）──
+   左列固定宽度放标签、中间一条竖线、右列放内容并左对齐。
+   用 grid 而不是 flex：flex 的横排会让多行内容被挤进右半栏（上一版就栽在这），
+   grid 的 `72px minmax(0,1fr)` 能把标签列钉死、内容列吃满剩余宽度。
+   ⚠ minmax(0,1fr) 里的 0 不能省 —— 换成 1fr 时长文件名会把整列撑宽、戳出卡片。 */
+#view-fw > .card:nth-of-type(1) .fw-row{
+  display:grid;
+  grid-template-columns:72px minmax(0,1fr);
+  gap:0;
+  padding:0;
+  align-items:stretch;
+}
+#view-fw > .card:nth-of-type(1) .fw-row > *:first-child{
+  display:flex; align-items:center;
+  padding:7px 8px 7px 0;
+  border-right:1px solid var(--line-soft);      /* ★ 表格竖线 */
+}
+#view-fw > .card:nth-of-type(1) .fw-row > *:last-child{
+  display:flex; align-items:center;
+  padding:7px 0 7px 10px;
+  min-width:0;                                  /* 允许内部文本换行而不是撑破 */
+  text-align:left;
+}
+/* 「本地固件」是多行内容：单元格顶部对齐并逐行铺开，不要垂直居中 */
+#view-fw > .card:nth-of-type(1) .fw-row.fw-block > *:last-child{
+  display:block;
+  padding-top:6px; padding-bottom:6px;
+}
+/* 「更新源」行：模式选择（官方/自定义 seg）+ URL 输入竖排在内容列里（Beta22）。
+   ⚠ 输入框不再是 .fw-src 的直接子元素（外面套了 .fw-src-box），旧 `> input` 选择器已失效。 */
+.fw-src-box{ display:flex; flex-direction:column; gap:6px; flex:1 1 auto; min-width:0; }
+.fw-src-box .seg-tabs{ align-self:flex-start; }
+.fw-src-box input{ flex:0 0 auto; width:100%; box-sizing:border-box; padding:6px 9px; font-size:calc(11.5px * var(--fscale)); }
+#view-fw > .card:nth-of-type(1) .fw-row.fw-src > *:last-child{
+  display:flex; flex-direction:column; align-items:stretch;
+  padding:7px 0 7px 10px; min-width:0; text-align:left;
+}
+
+/* ═══════════ 平板档：曲线页文字整体大一档（用户 2026-10-10 要求平板文字更大）═══════════
+   平板判定 = 宽和高都 ≥768px —— 手机横屏高只有 360-430，不会误中；
+   平板竖/横屏都生效（放在最后，同特异性下覆盖前面各档的字号）。 */
+@media (min-width: 768px) and (min-height: 768px){
+  /* 平板解除 720px 最大宽（用户 2026-10-11：竖屏曲线卡右边大片留白——#app max-width:720 居中导致） */
+  #app{ max-width:none; }
+  /* 协议页字体随平板尺寸缩放（用户 2026-10-11：不同平板尺寸不要固定大小）。
+     1vw@900=9px 起、1548=15.5px 顶 —— 竖屏平板/横屏平板/大平板同比 */
+  .pd-head{ font-size:clamp(10px, 1vw, 17px); }
+  .pd-item{ font-size:clamp(10px, 1.05vw, 17px); }
+  .pd-item .dir{ font-size:clamp(8.5px, 0.9vw, 14px); }
+  .pd-item .el{ font-size:clamp(9px, 0.95vw, 15px); }
+  .pd-item .vi{ font-size:clamp(9px, 0.95vw, 15px); }
+  .pd-events{ font-size:clamp(10.5px, 1.1vw, 18px); }
+  .pd-detail h4{ font-size:clamp(12px, 1.2vw, 19px); }
+  .pd-kv{ font-size:clamp(10.5px, 1.1vw, 18px); }
+  .pd-pdo{ font-size:clamp(10.5px, 1.1vw, 18px); }
+  /* TAB 加高再加大（用户 2026-10-11：弄宽/弄高一点） */
+  #view-chart #chartMode .seg{ padding:18px 22px; font-size:clamp(14px, 1.4vw, 22px); }
+  #view-chart .card-hd{ font-size:clamp(13px, 1.4vw, 21px); }
+  #view-chart .card-hd .icon-btn,
+  #view-chart .card-hd .btn{ padding:5px 12px; font-size:calc(12.5px * var(--fscale)); }
+  #view-chart .chips .c{ padding:6px 12px; font-size:clamp(11px, 1.1vw, 17px); }
+  /* 统计卡：数据再放大（用户：还是太小）。字号与左栏宽联动校准：
+     可用宽 = 22vw − padding31 − 单位/间隙 ≈ 22vw−55；8ch×0.6×字号 ≤ 可用宽
+     → 字号 ≤ (22vw−55)/4.8 —— 3.3vw 在 1180 平板=39px、1548 大平板=46px，两端都不裁单位 */
+  /* 实时页 MAX/AVG：与曲线卡统计数字同档（用户 2026-10-11 平板横屏太小） */
+  .hero-sub{ font-size:calc(16px * var(--fscale)); }
+  /* 统计表：行高拉高、字体放大（用户 2026-10-11 平板竖屏） */
+  #view-chart .st-row{
+    max-height:none; align-content:stretch; row-gap:6px;
+    padding:16px 16px 4px 18px;
+    min-height:96px;
+  }
+  #view-chart .st-k{ font-size:calc(16px * var(--fscale)); }
+  #view-chart .st-v{ font-size:calc(18px * var(--fscale)); }
+  #view-chart .st-h{ font-size:calc(14px * var(--fscale)); }
+  /* 数字大小同实时页 hero 平板横屏档（用户 2026-10-11：和实时 TAB 一样），单位贴右 */
+  #view-chart .st-v.st-main{ font-size:clamp(22px, 2.4vw, 36px); column-gap:.25em; }
+  #view-chart .st-v.st-main i{ font-size:calc(13px * var(--fscale)); }
+  /* MAX/AVG 字号加大（用户：两段合计要占卡宽约 4/5，此前不到一半） */
+  #view-chart .st-v{ font-size:calc(16px * var(--fscale)); }
+  #view-chart .st-v em{ font:400 calc(16px * var(--fscale))/1 var(--mono); }
+  #view-chart .axis-foot{ font-size:calc(12px * var(--fscale)); }
+  /* 曲线卡压扁（用户：右边的实时测试曲线压扁一点）：卡片不再拉伸全高，
+     绘图区限高 62vh，右栏下方自然留白 —— 曲线矮了，统计卡/顶行相对更大 */
+  /* ⚠ #view-chart 是 column flex：align-self 作用于**宽度**轴——start 会把曲线卡收缩成内容宽
+     （用户 2026-10-11：右边大片留白）。防纵向拉伸要用 flex:0 0 auto（main 轴） */
+  #view-chart .card.grow{ align-self:stretch; flex:0 0 auto; }
+  #view-chart .card.grow .full-chart{ flex:0 0 auto; height:clamp(320px, 40vh, 640px); }   /* 竖屏拉长（用户 2026-10-11 留白太多） */
+}
+
+/* ═══ 平板/大平板**横屏**：顶底栏加高（用户 2026-10-11：方便鼠标点击）═══
+   ⚠ 必须带 orientation:landscape + min-height:768 —— 手机横屏宽度也都 ≥768，
+   不加会把手机横屏（28/32 压扁档）误拉高；竖屏大平板走基础档 52/58 本来就高 */
+@media (orientation: landscape) and (min-width: 768px) and (min-height: 768px){
+  :root{ --topbar-h:44px; --tabbar-h:48px; }
+}
+
+/* ═══ 平板/大平板横屏：曲线卡铺满右栏（用户 2026-10-11：右侧曲线下方大量留白）═══
+   写在文件尾压过平板档的限高（flex:1 拉伸卡片剩余高度，canvas 随之铺满） */
+@media (orientation: landscape) and (min-width: 768px) and (min-height: 680px){
+  #view-chart .card.grow .full-chart{ flex:1 1 auto; height:auto; min-height:200px; }
+}
+
+/* ══════ 确认对话框（2026-10-12：原生 confirm 太丑，用户要求 UI 风格一致）════════
+   ⚠ 追加在文件末尾（顶格）—— 本文件中段有大片 @media 块（1350-1565 行附近），
+   插错位置会导致规则只在横屏生效（本轮已踩过一次）。 */
+.fw-confirm-mask{
+  position:fixed; inset:0; background:rgba(0,0,0,.62); z-index:999;
+  display:flex; align-items:center; justify-content:center; padding:26px;
+}
+.fw-confirm{
+  background:var(--panel); border:1px solid var(--line);
+  border-radius:14px; padding:20px; max-width:340px; width:100%;
+  box-shadow:0 14px 44px rgba(0,0,0,.55);
+}
+.fw-confirm h4{ margin:0 0 10px; font-size:calc(15px * var(--fscale)); color:var(--tx); }
+.fw-confirm p{
+  margin:0 0 16px; font-size:calc(12.5px * var(--fscale)); line-height:1.75;
+  color:var(--tx-2); white-space:pre-line;
+}
+.fw-confirm .btns{ display:flex; gap:10px; }
+.fw-confirm .btns .btn{ flex:1; }
+
+/* ══════════════════════════════════════════════════════════════
+   平板字号自适应（2026-10-13）
+   手机（短边 < 600）保持 --fscale:1，外观与本规则加入前一致。
+   判定用「短边」= min(宽,高)，保证平板横竖屏都命中。
+   ══════════════════════════════════════════════════════════════ */
+@media (min-width: 600px)  and (min-height: 600px)  { :root { --fscale: 1.10; } }  /* 8"  级 */
+@media (min-width: 800px)  and (min-height: 800px)  { :root { --fscale: 1.18; } }  /* 10-11" 级 */
+@media (min-width: 1000px) and (min-height: 1000px) { :root { --fscale: 1.26; } }  /* 12-13" 级 */
+@media (min-width: 1300px) and (min-height: 1300px) { :root { --fscale: 1.34; } }  /* 特大屏 */

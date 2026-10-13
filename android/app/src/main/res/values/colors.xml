@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 自适应图标底色：与 ryken.cn 官网 logo 完全一致的品牌红 -->
+    <color name="ic_bg">#FF0000</color>
+</resources>

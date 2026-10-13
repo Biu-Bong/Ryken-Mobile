@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#0b0e14" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>RYKEN 功率表</title>
+<link rel="stylesheet" href="assets/css/app.css" />
+<script>
+// 早期错误上报（非 module，保证在模块加载失败时也能跑）
+window.__rykenErr = [];
+window.addEventListener('error', function (e) {
+  var msg = (e.message || '') + ' @' + (e.filename || '') + ':' + (e.lineno || 0);
+  window.__rykenErr.push(msg);
+  if (window.console) console.error('[RYKEN] ' + msg);
+}, true);
+window.addEventListener('unhandledrejection', function (e) {
+  var msg = 'unhandledrejection: ' + (e.reason && (e.reason.message || e.reason));
+  window.__rykenErr.push(msg);
+  if (window.console) console.error('[RYKEN] ' + msg);
+});
+</script>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ═══ 顶栏：竖屏 2×2 ／ 横屏一行 ═══
+       竖屏两列：左列 = 版本号 / 固件号，右列 = 型号 / SN（DOM 顺序 = 列优先填充，
+       所以顺序必须是 版本号→固件号→型号→SN）。LOGO 独立在最左，整体垂直居中。
+       横屏 .tb-info 变单行，按 版本号·型号·SN·固件号 排（用 order）。
+       固件号可点，跳到「固件」页。 -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-rk">RK</span>
+      <span class="brand-en">RYKEN</span>
+    </div>
+    <div class="tb-info">
+      <!-- 竖屏 2×2 列优先：DOM 顺序 = 左列(固件号→软件版本号) → 右列(型号→SN)。
+           固件号与软件版本号位置对调（Beta13：防左侧挖孔遮挡，用户指定）。
+           固件号可点，跳到「固件」页。 -->
+      <button class="tb-i ti ti-fw" id="devVerBtn" type="button" title="查看固件更新">
+        <i>固件</i><b id="devVer">—</b>
+      </button>
+      <!-- 软件版本号：文本由 boot() 从 #appVer 同步，保持单一来源 -->
+      <span class="tb-i tb-ver" id="tbVer">v0.5.4-beta22</span>
+      <span class="tb-i ti ti-model"><i>型号</i><b id="devName">—</b></span>
+      <span class="tb-i ti ti-sn"><i>SN</i><b id="devSn">—</b></span>
+    </div>
+    <button class="conn-pill" id="connPill" type="button">
+      <span class="dot" id="connDot"></span>
+      <span id="connText">未连接</span>
+    </button>
+  </header>
+
+  <!-- ═══ 视图区 ═══ -->
+  <main class="views" id="views">
+
+    <!-- ─────── 1. 实时 ───────
+         布局（见 app.css「实时页」一节）：
+           竖屏窄屏 → 纵排：主数据(电压/电流/功率) → 辅助数据 → 曲线 → 采样参数
+           横屏宽屏 → 网格：左「主数据+操作」｜中「辅助数据」｜右「曲线」，参数条压底
+         DOM 顺序固定，靠 grid-area / order 分流，避免两套结构各自维护。 -->
+    <section class="view is-active" id="view-live">
+
+      <!-- 主数据（电压 / 电流 / 功率）+ 主操作 -->
+      <div class="live-data">
+        <div class="hero-stack">
+          <div class="hero-card v" data-m="vbus">
+            <div class="hero-label"><em>VBUS</em></div>
+            <div class="hero-val"><span id="mVbus">0.00000</span><i>V</i></div>
+            <div class="hero-sub" id="sVbus">—</div>
+          </div>
+          <div class="hero-card i" data-m="ibus">
+            <div class="hero-label"><em>IBUS</em></div>
+            <div class="hero-val"><span id="mIbus">0.00000</span><i>A</i></div>
+            <div class="hero-sub" id="sIbus">—</div>
+          </div>
+          <div class="hero-card p" data-m="pwr">
+            <div class="hero-label"><em>PWR</em></div>
+            <div class="hero-val"><span id="mPwr">0.00000</span><i>W</i></div>
+            <div class="hero-sub" id="sPwr">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 辅助数据：CC1 / CC2 / D+ / D− / 温度 / 手机电量 / 容量 / 能量
+           单位独立 <i>（右列贴卡缘），数值字符串不带单位（Beta19 用户要求分离） -->
+      <div class="aux-stack">
+        <div class="aux" data-m="cc1"><span class="ak">CC1</span><span class="av" id="mCc1">0.01</span><i>V</i></div>
+        <div class="aux" data-m="cc2"><span class="ak">CC2</span><span class="av" id="mCc2">0.01</span><i>V</i></div>
+        <div class="aux" data-m="dp"><span class="ak">D+</span><span class="av" id="mDp">0.01</span><i>V</i></div>
+        <div class="aux" data-m="dm"><span class="ak">D−</span><span class="av" id="mDm">0.01</span><i>V</i></div>
+        <div class="aux" data-m="temp"><span class="ak">温度</span><span class="av" id="cTemp">—</span><i>℃</i></div>
+        <div class="aux" data-m="batt"><span class="ak">手机电量</span><span class="av" id="cBatt">—</span><i>%</i></div>
+        <div class="aux" data-m="cap"><span class="ak">容量</span><span class="av" id="cCap">—</span><i>mAh</i></div>
+        <div class="aux" data-m="wh"><span class="ak">能量</span><span class="av" id="cWh">—</span><i>Wh</i></div>
+      </div>
+
+      <!-- 右栏：实时曲线 -->
+      <div class="card live-chart-card">
+        <div class="card-hd">
+          <span>实时曲线</span>
+          <div class="hd-actions">
+            <span class="seg-tabs mini" id="liveSeriesSeg">
+              <button class="seg is-active" data-v="vbus" title="电压 VBUS（可多选）">V</button>
+              <button class="seg is-active" data-v="ibus" title="电流 IBUS（可多选）">A</button>
+              <button class="seg is-active" data-v="pwr" title="功率 PWR（可多选）">W</button>
+            </span>
+            <button class="icon-btn" id="btnLiveClear" title="复位（回到最新，保留记录）">⟲</button>
+          </div>
+        </div>
+        <div class="chart-wrap live-chart" id="liveChartWrap">
+          <canvas id="liveChart"></canvas>
+          <div class="chart-tip" id="liveTip"></div>
+        </div>
+        <div class="live-legend" id="liveLegend"></div>
+      </div>
+
+      <!-- 底部操作带：主操作 + 采样参数
+           横屏：与参数条同排（左按钮、右参数，grid 显式定位）；竖屏：参数卡在前、按钮最后（贴底栏）。
+           DOM 顺序即视觉顺序 —— 不依赖 display:contents/order（部分 WebView 上排序失效，用户实测） -->
+      <div class="live-bottom">
+      <!-- 采样与记录：两个功能区，各占一行
+           ① 触发/停止功能区（紧挨着排）：触发依据 · 触发小于 · 满足条件后自动停止 · 持续时间 · 使用系统时间
+           ② 采样功能区：采样速率 · 采样点数 · 缓存
+           宽屏（横屏手机 / 平板）一行一条；窄屏放不下时 .param-row 各自换行 -->
+      <div class="action-bar">
+        <button class="btn primary big" id="btnRun"><span class="ri"></span><span id="btnRunText">开始记录</span></button>
+        <button class="btn ghost big" id="btnZero">清零</button>
+      </div>
+
+      <div class="card live-param-card">
+        <div class="card-hd"><span>采样与记录</span></div>
+
+        <div class="param-row r1">
+          <span class="field">
+            <span>触发依据</span>
+            <span class="seg-tabs mini" id="fTrigBase">
+              <button class="seg" data-val="电压">电压</button>
+              <button class="seg is-active" data-val="功率">功率</button>
+              <button class="seg" data-val="电流">电流</button>
+            </span>
+          </span>
+          <span class="field">
+            <span>触发小于</span>
+            <span class="num-edit"><button data-num="trig" data-d="-1">−</button><input id="fTrigVal" type="text" value="1.0" inputmode="decimal" /><button data-num="trig" data-d="1">+</button><i id="fTrigUnit">W</i></span>
+          </span>
+          <label class="sw"><input type="checkbox" id="fAutoStop" /><i></i><span>满足条件后自动停止</span></label>
+          <span class="field">
+            <span>持续时间</span>
+            <span class="num-edit"><button data-num="dur" data-d="-1">−</button><input id="fDur" type="text" value="10" inputmode="numeric" /><button data-num="dur" data-d="1">+</button><i>S</i></span>
+          </span>
+          <label class="sw"><input type="checkbox" id="fSysTime" checked /><i></i><span>使用系统时间</span></label>
+        </div>
+
+        <div class="param-row r2">
+          <span class="field">
+            <span>采样速率</span>
+            <span class="seg-tabs mini" id="fRate">
+              <button class="seg" data-val="1SPS">1</button>
+              <button class="seg is-active" data-val="10SPS">10</button>
+              <button class="seg" data-val="50SPS">50</button>
+              <button class="seg" data-val="100SPS">100</button>
+              <button class="seg" data-val="native">原生</button>
+            </span>
+          </span>
+          <span class="pstat"><span>采样点数</span><b id="fPoints">0</b></span>
+          <span class="pstat"><span>缓存</span><b id="fBuf">0.0 MB</b></span>
+        </div>
+      </div>
+
+      </div><!-- /.live-bottom -->
+    </section>
+
+    <!-- ─────── 2. 曲线 ─────── -->
+    <section class="view" id="view-chart">
+      <div class="seg-tabs" id="chartMode">
+        <button class="seg is-active" data-mode="curve">曲线</button>
+        <button class="seg" data-mode="measure">测量</button>
+        <button class="seg" data-mode="stat">统计</button>
+      </div>
+
+      <div class="filter-row">
+        <div class="chips" id="seriesChips"></div>
+      </div>
+
+      <div class="card grow">
+        <div class="card-hd">
+          <span id="chartTitle">实时测试曲线</span>
+          <div class="hd-actions">
+            <button class="icon-btn" id="btnFollow" title="跟随最新：只看最近一段，窗口自动右移">跟随</button>
+            <button class="icon-btn" id="btnFit" title="缩放看全部：从起点到最新全程显示，曲线继续更新">缩放</button>
+            <button class="btn ghost" id="btnExportCsv">导出 CSV</button>
+            <button class="btn ghost" id="btnExportPng">导出图片</button>
+          </div>
+        </div>
+        <div class="chart-wrap full-chart" id="bigChartWrap">
+          <canvas id="bigChart"></canvas>
+          <div class="chart-tip" id="bigTip"></div>
+          <!-- 测量面板（复刻官方「测量」）：悬浮在曲线图上（与统计窗同配置：底 50%、标题栏 80%、可拖）。
+               pointer-events:none —— 只有标题栏吃事件，图上手势不被挡 -->
+          <div class="measure-panel" id="measurePanel"></div>
+          <!-- 统计表（复刻官方「统计」）：悬浮在曲线图上、50% 透明度；统计模式下显示 -->
+          <div class="stats-table" id="statsTable"></div>
+        </div>
+        <div class="axis-foot"><span id="footLeft">V</span><span id="footTime">00:00:00.0</span><span id="footRight">A</span></div>
+      </div>
+
+      <div class="stat-table" id="statCards"></div>
+    </section>
+
+    <!-- ─────── 3. 协议 ─────── -->
+    <section class="view" id="view-pd">
+      <div class="pd-toolbar">
+        <button class="btn primary sm" id="btnPdRun"><span class="ri"></span><span id="btnPdText">开始</span></button>
+        <button class="btn ghost sm" id="btnPdClear">清空</button>
+        <span class="pd-count"><b id="pdCount">0</b> 条</span>
+        <div class="spacer"></div>
+        <label class="sw tiny"><input type="checkbox" id="pdMask" /><i></i><span>屏蔽 GoodCRC</span></label>
+      </div>
+      <div class="pd-events" id="pdEvents"></div>
+
+      <div class="pd-head">
+        <span class="c-no">#</span>
+        <span class="c-sop">SOP</span>
+        <span class="c-msg">Msg</span>
+        <span class="c-id">ID</span>
+        <span class="c-dir">方向</span>
+        <span class="c-el">耗时</span>
+        <span class="c-vb">VBUS/IBUS</span>
+      </div>
+      <div class="pd-list" id="pdList"><div class="pd-empty">等待协议报文…<br />插上快充头，让设备完成一次 PD 协商<br />（拔插一次充电头即可触发）</div></div>
+
+      <div class="pd-detail" id="pdDetail">
+        <div class="pd-detail-empty">点击上方报文查看解析详情</div>
+      </div>
+    </section>
+
+    <!-- ─────── 4. 固件 ─────── -->
+    <section class="view" id="view-fw">
+      <div class="card">
+        <div class="card-hd"><span>固件更新</span></div>
+        <div class="fw-row"><span>当前版本</span><b id="fwCur">—</b></div>
+        <div class="fw-row"><span>最新版本</span><b id="fwNew">未检查</b></div>
+        <div class="fw-row fw-block"><span>本地固件</span><b id="fwFile">未选择</b></div>
+        <div class="fw-row fw-src"><span>更新源</span>
+          <div class="fw-src-box">
+            <span class="seg-tabs mini" id="fwSrcSeg">
+              <button class="seg" data-val="official">官方源</button>
+              <button class="seg" data-val="ys">永硕源</button>
+              <button class="seg" data-val="custom">自定义</button>
+            </span>
+            <input id="fwUrl" type="text" placeholder="自定义源：任意含版本号的页面 / 直链 txt" />
+          </div>
+        </div>
+        <div class="fw-actions">
+          <button class="btn ghost" id="btnPickFw">选择固件</button>
+          <button class="btn ghost" id="btnCheckFw">检查更新</button>
+        </div>
+        <button class="btn primary wide" id="btnUpgrade" disabled>立即升级</button>
+        <div class="progress" id="fwProgress"><div class="bar" id="fwBar"></div><span class="pl" id="fwPl">0%</span></div>
+        <div class="fw-hint" id="fwHint">
+          <b>怎么刷：</b>按住测试仪「返回」键 → 插上数据线 → 设备进入 U 盘模式
+          （电脑上挂出 RKX3IAP 与 RKX3 两个盘；手机上只挂出 RKX3IAP）→
+          点「立即升级」，App 会把选好的 bin 写进 RKX3IAP，并等设备烧录完成。
+          <br>⚠ 进 U 盘模式<b>必须由人按住「返回」键</b>（硬件路径，唯一的官方入口）。
+          <br>另注：手机端只挂载第一个盘，换 LOGO / 换主题（文件在 RKX3 数据盘）仍需用电脑。
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><span>离线数据</span></div>
+        <p class="hint">测试仪内置 4MB Flash，可存 10 组容量记录与离线曲线。连接后读取。</p>
+        <div class="fw-actions">
+          <button class="btn ghost" id="btnReadOffline">读取离线记录</button>
+          <button class="btn ghost" id="btnReadLogo">读取开机图</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><span>文件</span></div>
+        <div class="fw-actions col">
+          <button class="btn ghost wide" id="btnImport">导入 CSV</button>
+          <button class="btn ghost wide" id="btnExportCsv2">导出 CSV</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><span>U 盘模式</span></div>
+        <p class="hint">按住测试仪「返回」键，再插入 HID 口数据线，设备会以 U 盘（RKX3）方式挂载。手机端可直接用系统文件管理器替换 LOGO、刷入固件。</p>
+      </div>
+    </section>
+
+    <!-- ─────── 5. 设置 ─────── -->
+    <section class="view" id="view-set">
+      <div class="card">
+        <div class="card-hd"><span>主题</span></div>
+        <span class="seg-tabs" id="themeSeg">
+          <button class="seg is-active" data-t="dark">暗色</button>
+          <button class="seg" data-t="light">亮色</button>
+          <button class="seg" data-t="auto">跟随系统</button>
+        </span>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><span>屏幕方向</span></div>
+        <span class="seg-tabs" id="orientSeg">
+          <button class="seg is-active" data-o="auto">自动</button>
+          <button class="seg" data-o="portrait">竖屏</button>
+          <button class="seg" data-o="landscape">横屏</button>
+        </span>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><span>曲线坐标偏移倍数</span></div>
+        <div class="fw-row">
+          <span>电压曲线</span>
+          <span class="num-edit"><button data-num="ov" data-d="-0.05">−</button><input id="sOv" value="1.05" inputmode="decimal" /><button data-num="ov" data-d="0.05">+</button></span>
+        </div>
+        <div class="fw-row">
+          <span>电流曲线</span>
+          <span class="num-edit"><button data-num="oi" data-d="-0.05">−</button><input id="sOi" value="1.1" inputmode="decimal" /><button data-num="oi" data-d="0.05">+</button></span>
+        </div>
+        <div class="fw-row">
+          <span>功率曲线</span>
+          <span class="num-edit"><button data-num="op" data-d="-0.05">−</button><input id="sOp" value="1.15" inputmode="decimal" /><button data-num="op" data-d="0.05">+</button></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><span>显示</span></div>
+        <div class="sw-row"><span>启用功率曲线面积填充</span><label class="sw"><input type="checkbox" id="sArea" checked /><i></i></label></div>
+        <div class="sw-row"><span>显示网格线</span><label class="sw"><input type="checkbox" id="sGrid" checked /><i></i></label></div>
+        <div class="sw-row"><span>屏幕常亮</span><label class="sw"><input type="checkbox" id="sKeepOn" /><i></i></label></div>
+        <div class="sw-row"><span>记录中保持屏幕常亮<em class="sub">防止息屏丢数据</em></span><label class="sw"><input type="checkbox" id="sKeepOnRec" checked /><i></i></label></div>
+        <div class="sw-row"><span>暗色模式使用 A 屏黑主题</span><label class="sw"><input type="checkbox" id="sAmoled" /><i></i></label></div>
+        <div class="sw-row"><span>隐藏状态栏</span><label class="sw"><input type="checkbox" id="sHideStatus" /><i></i></label></div>
+        <div class="sw-row"><span>横屏时自动隐藏状态栏</span><label class="sw"><input type="checkbox" id="sHideStatusLand" /><i></i></label></div>
+        <div class="sw-row"><span>左右滑动切换页面</span><label class="sw"><input type="checkbox" id="sSwipeNav" /><i></i></label></div>
+        <div class="sw-row"><span>演示模式（无设备时显示演示数据）</span><label class="sw"><input type="checkbox" id="sDemo" /><i></i></label></div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><span>曲线缓存</span></div>
+        <!-- 对标官方上位机：缓存大小 100–2000M、默认 100M；下方实时估算当前采样率下可录时长 -->
+        <div class="fw-row">
+          <span>缓存大小</span>
+          <span class="num-edit"><button data-num="bufmb" data-d="-100">−</button><input id="sBufMB" value="100" inputmode="numeric" /><button data-num="bufmb" data-d="100">+</button><i>MB</i></span>
+        </div>
+        <div class="fw-row"><span>约可录</span><b id="sBufTime">—</b></div>
+        <div class="fw-hint show">范围 100–1000 MB。修改后曲线数据清空、立即生效；默认档 50SPS + 100MB ≈ 6 小时。</div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><span>曲线读数停留时间</span></div>
+        <!-- 用分段按钮而不是原生 select：WebView 里的 select 是系统控件、弹原生选择器，
+             样式完全不受控，在深色界面里非常突兀（用户 2026-10-11 反馈）。 -->
+        <span class="seg-tabs" id="tipHoldSeg">
+          <button class="seg" data-h="3000">3 秒</button>
+          <button class="seg" data-h="5000">5 秒</button>
+          <button class="seg" data-h="10000">10 秒</button>
+          <button class="seg" data-h="30000">30 秒</button>
+          <button class="seg" data-h="0">常驻</button>
+        </span>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><span>曲线颜色</span></div>
+        <div class="color-grid" id="colorGrid"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">
+          <span>原始数据 · 协议调试</span>
+          <div class="hd-actions">
+            <button class="icon-btn" id="btnDbgTry">试读</button>
+            <button class="icon-btn" id="btnDbgReconnect">重连</button>
+            <button class="icon-btn" id="btnDbgSnap">快照</button>
+            <button class="icon-btn" id="btnDbgCopy">复制</button>
+            <button class="icon-btn" id="btnDbgClear">清空</button>
+          </div>
+        </div>
+        <div class="dbg-stat" id="dbgStat">—</div>
+        <div class="dbg-diag" id="dbgDiag"></div>
+        <div class="dbg-bytes" id="dbgBytes"></div>
+        <p class="hint" id="dbgHint">亮色 = 该字节在变化，暗色 = 恒定。给功率表加上负载后点「快照」，把结果发我即可完成字段解码。</p>
+      </div>
+
+      <!-- 赞赏码（用户 2026-10-13）：暗色主题用暗版、亮色主题用亮版（两张图各自带底色，
+           不能只放一张靠滤镜——图上还有金色横幅，反色会毁掉配色） -->
+      <div class="card reward-card">
+        <div class="card-hd"><span>赞赏码</span></div>
+        <img class="reward-img reward-dark" src="assets/img/reward_dark.jpg" alt="赞赏码（暗色）" />
+        <img class="reward-img reward-light" src="assets/img/reward_light.jpg" alt="赞赏码（亮色）" />
+        <div class="hint">这个工具帮到了你的话，可以请作者喝杯咖啡。完全自愿，不影响任何功能。</div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><span>日志与诊断（反馈 bug 用）</span></div>
+        <textarea id="logBox" class="log-box" readonly placeholder="出问题时点「生成日志」：会收集连接状态、设备信息、错误记录与最近数据帧。复制或分享给开发者即可定位问题（例如某台设备显示无数据）。"></textarea>
+        <div class="action-bar">
+          <button class="btn ghost" id="btnLogGen">生成日志</button>
+          <button class="btn ghost" id="btnLogCopy">复制</button>
+          <button class="btn primary" id="btnLogShare">分享</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">
+          <span>关于</span>
+          <div class="hd-actions">
+            <!-- 上位机自身的更新检查（用户 2026-10-13）：源 = 仓库的 Releases 地址 -->
+            <button class="icon-btn" id="btnAppUpdate" title="检查 GitHub 仓库有没有新版本">检查更新</button>
+          </div>
+        </div>
+        <!-- 上位机版本号的唯一来源（顶栏 #tbVer 由 boot() 从这里同步） -->
+        <div class="fw-row"><span>上位机</span><b id="aboutVer">RYKEN Mobile</b><span id="appVer" hidden>1.0.0</span></div>
+        <div class="fw-row"><span>最新版本</span><b id="appNew">未检查</b></div>
+        <div class="fw-row"><span>设备型号</span><b id="aboutDevName">—</b></div>
+        <div class="fw-row"><span>设备 SN</span><b id="aboutSn">—</b></div>
+        <div class="fw-row"><span>固件版本</span><b id="aboutFw">—</b></div>
+        <div class="fw-row"><span>USB</span><b id="aboutUsb">—</b></div>
+        <div class="fw-row"><span>适配机型</span><b>RK-X3 / X3 SE / X3 Pro</b></div>
+        <div class="fw-row"><span>作者</span><b>Biu-Bong</b></div>
+        <div class="fw-row"><span>开源仓库</span><a class="jump" href="https://github.com/Biu-Bong/RYKEN-Mobile" target="_blank" rel="noopener">github.com/Biu-Bong/RYKEN-Mobile</a></div>
+        <button class="btn ghost wide" id="btnReset">恢复默认设置</button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══ 底部导航 ═══ -->
+  <nav class="tabbar" id="tabbar">
+    <button class="tab is-active" data-view="live">
+      <svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg><span>实时</span>
+    </button>
+    <button class="tab" data-view="chart">
+      <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>曲线</span>
+    </button>
+    <button class="tab" data-view="pd">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>协议</span>
+    </button>
+    <button class="tab" data-view="fw">
+      <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg><span>固件</span>
+    </button>
+    <button class="tab" data-view="set">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg><span>设置</span>
+    </button>
+  </nav>
+
+</div>
+
+<script type="module" src="assets/js/app.js"></script>
+</body>
+</html>
