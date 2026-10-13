@@ -94,7 +94,7 @@ SCP / FCP / AFC / SVOOC 等协议检测，配 16bit ADC 与 4MB Flash 离线存�
 | --- | --- |
 | RK-X3 | ✅ 已验证 |
 | X3 SE | ✅ 已验证 |
-| RK-X3 Pro | ⚠️ 与 X3 共用固件，理论兼容，未实测 |
+| RK-X3 Pro | ✅ 已验证 |
 
 **手机要求**：Android 7.0 (API 24) 及以上，支持 USB-OTG。
 部分机型的 USB 控制器在热插拔后有概率卡死（见 [已知限制](#已知限制)）。
