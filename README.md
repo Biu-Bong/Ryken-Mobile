@@ -84,13 +84,13 @@ SCP / FCP / AFC / SVOOC 等协议检测，配 16bit ADC 与 4MB Flash 离线存�
 
 ### 竖屏
 
-| 测量（T1/T2 可拖测量线） | 统计 |
-| :---: | :---: |
-| ![测量](docs/screenshots/01-measure.png) | ![统计](docs/screenshots/03-stats.png) |
+| 实时 | 测量（T1/T2 可拖测量线） | 统计 |
+| :---: | :---: | :---: |
+| ![实时](docs/screenshots/01-live.png) | ![测量](docs/screenshots/02-measure.png) | ![统计](docs/screenshots/03-stats.png) |
 
 曲线特写 —— T1/T2 两条测量线，逐系列标出起止值与 Δt：
 
-![曲线特写](docs/screenshots/02-t1t2.png)
+![曲线特写](docs/screenshots/04-t1t2.png)
 
 ### 横屏
 
@@ -98,15 +98,15 @@ SCP / FCP / AFC / SVOOC 等协议检测，配 16bit ADC 与 4MB Flash 离线存�
 
 **实时** —— 主卡 / 副参数 / 实时曲线并排
 
-![实时（横屏）](docs/screenshots/04-live-landscape.png)
+![实时（横屏）](docs/screenshots/05-live-landscape.png)
 
 **测量** —— 左栏关键指标，右侧曲线 + T1/T2 测量线
 
-![测量（横屏）](docs/screenshots/05-measure-landscape.png)
+![测量（横屏）](docs/screenshots/06-measure-landscape.png)
 
 **统计** —— 悬浮统计窗浮在图上，「全部 / 窗口」两组口径
 
-![统计（横屏）](docs/screenshots/06-stats-landscape.png)
+![统计（横屏）](docs/screenshots/07-stats-landscape.png)
 
 ## 兼容设备
 
